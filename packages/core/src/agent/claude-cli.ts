@@ -73,7 +73,8 @@ export class ClaudeCliAgent extends BaseAgent {
 
       const proc: ChildProcess = spawn(command, args, {
         cwd,
-        shell: true,
+        shell: false,
+        stdio: ['pipe', 'pipe', 'pipe'],
         env: {
           ...process.env,
           // Ensure Claude CLI doesn't try to use interactive features
@@ -154,6 +155,8 @@ export class StreamingClaudeCliAgent extends BaseAgent {
       ctx.prompt,
     ];
 
+    console.log(`[Agent] Spawning process: ${command} ${args.slice(0, 2).join(' ')} "<prompt>"`);
+
     // Create a queue for streaming output
     const outputQueue: string[] = [];
     let isComplete = false;
@@ -163,13 +166,17 @@ export class StreamingClaudeCliAgent extends BaseAgent {
 
     const proc = spawn(command, args, {
       cwd: ctx.repoPath,
-      shell: true,
+      shell: false,
+      stdio: ['ignore', 'pipe', 'pipe'],
       env: {
         ...process.env,
         CI: 'true',
         TERM: 'dumb',
+        NONINTERACTIVE: '1',
       },
     });
+
+    console.log(`[Agent] Process spawned (pid: ${proc.pid}), running: ${command} ${args.slice(0, 2).join(' ')} ...`);
 
     proc.stdout?.on('data', (data: Buffer) => {
       const text = data.toString();
@@ -185,12 +192,14 @@ export class StreamingClaudeCliAgent extends BaseAgent {
 
     const completionPromise = new Promise<void>((resolve) => {
       proc.on('close', (code) => {
+        console.log(`[Agent] Process closed with code: ${code}`);
         exitCode = code ?? 1;
         isComplete = true;
         resolve();
       });
 
       proc.on('error', (error) => {
+        console.log(`[Agent] Process error: ${error.message}`);
         errorOutput += error.message;
         isComplete = true;
         resolve();

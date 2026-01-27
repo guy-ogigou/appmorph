@@ -20,6 +20,8 @@ class TaskExecutorImpl extends EventEmitter implements TaskExecutor {
   private runningTasks = new Map<string, { abortController: AbortController }>();
 
   async execute(task: Task): Promise<AgentResult> {
+    console.log(`[Executor] Starting task ${task.id}: "${task.prompt.substring(0, 50)}..."`);
+
     const agent = createDefaultAgent();
     const repoManager = getRepoManager();
 
@@ -43,6 +45,7 @@ class TaskExecutorImpl extends EventEmitter implements TaskExecutor {
 
         if (done) {
           result = value as AgentResult;
+          console.log(`[Executor] Task ${task.id} completed: ${result.success ? 'success' : 'failed'}`);
           break;
         }
 

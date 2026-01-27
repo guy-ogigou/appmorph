@@ -106,7 +106,6 @@ export async function registerTaskRoutes(fastify: FastifyInstance): Promise<void
       setImmediate(() => {
         task.status = 'running';
         task.updatedAt = Date.now();
-
         executor.execute(task).catch((error) => {
           console.error('Task execution error:', error);
         });
