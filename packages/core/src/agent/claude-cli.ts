@@ -137,7 +137,30 @@ export class ClaudeCliAgent extends BaseAgent {
 }
 
 /**
+ * JSON message types from Claude CLI stream-json output
+ */
+interface ClaudeStreamMessage {
+  type: 'system' | 'assistant' | 'user' | 'result';
+  subtype?: string;
+  message?: {
+    content?: Array<{
+      type: 'text' | 'tool_use';
+      text?: string;
+      name?: string;
+      input?: Record<string, unknown>;
+    }>;
+  };
+  tool_use_result?: {
+    stdout?: string;
+    stderr?: string;
+  };
+  result?: string;
+  is_error?: boolean;
+}
+
+/**
  * Streaming version of the Claude CLI agent that yields progress as it runs.
+ * Uses --output-format stream-json for real-time streaming of the thought process.
  */
 export class StreamingClaudeCliAgent extends BaseAgent {
   readonly name = 'claude-cli-streaming';
@@ -149,20 +172,26 @@ export class StreamingClaudeCliAgent extends BaseAgent {
     yield this.createProgress('log', `Starting Claude CLI agent...`);
     yield this.createProgress('thinking', `Analyzing: ${ctx.prompt.substring(0, 100)}...`);
 
+    // Use stream-json output format for real-time streaming
     const args = [
       '--print',
+      '--output-format', 'stream-json',
+      '--verbose',
       '--dangerously-skip-permissions',
       ctx.prompt,
     ];
 
-    console.log(`[Agent] Spawning process: ${command} ${args.slice(0, 2).join(' ')} "<prompt>"`);
+    console.log(`[Agent] Spawning process: ${command} --print --output-format stream-json ...`);
 
     // Create a queue for streaming output
-    const outputQueue: Array<{ type: 'stdout' | 'stderr'; text: string }> = [];
+    const outputQueue: Array<AgentProgress> = [];
     let isComplete = false;
     let exitCode = 0;
-    let fullOutput = '';
     let errorOutput = '';
+    let finalResult = '';
+    let resultSuccess = true;
+    const filesChanged: string[] = [];
+    let lineBuffer = '';
 
     const proc = spawn(command, args, {
       cwd: ctx.repoPath,
@@ -176,18 +205,42 @@ export class StreamingClaudeCliAgent extends BaseAgent {
       },
     });
 
-    console.log(`[Agent] Process spawned (pid: ${proc.pid}), running: ${command} ${args.slice(0, 2).join(' ')} ...`);
+    console.log(`[Agent] Process spawned (pid: ${proc.pid})`);
 
     proc.stdout?.on('data', (data: Buffer) => {
       const text = data.toString();
-      fullOutput += text;
-      outputQueue.push({ type: 'stdout' as const, text });
+      lineBuffer += text;
+
+      // Process complete JSON lines
+      const lines = lineBuffer.split('\n');
+      lineBuffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+      for (const line of lines) {
+        if (!line.trim()) continue;
+
+        try {
+          const msg: ClaudeStreamMessage = JSON.parse(line);
+          const progress = this.parseStreamMessage(msg, filesChanged);
+          if (progress) {
+            outputQueue.push(progress);
+          }
+
+          // Capture final result
+          if (msg.type === 'result') {
+            finalResult = msg.result || '';
+            resultSuccess = !msg.is_error;
+          }
+        } catch (e) {
+          // If JSON parse fails, output raw line
+          outputQueue.push(this.createProgress('stdout', line));
+        }
+      }
     });
 
     proc.stderr?.on('data', (data: Buffer) => {
       const text = data.toString();
       errorOutput += text;
-      outputQueue.push({ type: 'stderr' as const, text });
+      outputQueue.push(this.createProgress('stdout', `[stderr] ${text}`));
     });
 
     const completionPromise = new Promise<void>((resolve) => {
@@ -195,6 +248,24 @@ export class StreamingClaudeCliAgent extends BaseAgent {
         console.log(`[Agent] Process closed with code: ${code}`);
         exitCode = code ?? 1;
         isComplete = true;
+
+        // Process any remaining buffered content
+        if (lineBuffer.trim()) {
+          try {
+            const msg: ClaudeStreamMessage = JSON.parse(lineBuffer);
+            const progress = this.parseStreamMessage(msg, filesChanged);
+            if (progress) {
+              outputQueue.push(progress);
+            }
+            if (msg.type === 'result') {
+              finalResult = msg.result || '';
+              resultSuccess = !msg.is_error;
+            }
+          } catch (e) {
+            outputQueue.push(this.createProgress('stdout', lineBuffer));
+          }
+        }
+
         resolve();
       });
 
@@ -209,48 +280,100 @@ export class StreamingClaudeCliAgent extends BaseAgent {
     // Yield progress as output comes in
     while (!isComplete || outputQueue.length > 0) {
       if (outputQueue.length > 0) {
-        const chunk = outputQueue.shift()!;
-        // Use 'stdout' type for raw console output to preserve formatting
-        yield this.createProgress('stdout', chunk.text);
+        const progress = outputQueue.shift()!;
+        yield progress;
       } else if (!isComplete) {
         // Wait a bit for more output
-        await new Promise((r) => setTimeout(r, 100));
+        await new Promise((r) => setTimeout(r, 50));
       }
     }
 
     await completionPromise;
 
-    const filesChanged = this.parseFilesChanged(fullOutput);
-
-    if (exitCode === 0) {
-      return this.createResult(true, 'Changes applied successfully', {
+    if (exitCode === 0 && resultSuccess) {
+      return this.createResult(true, finalResult || 'Changes applied successfully', {
         filesChanged,
       });
     } else {
-      return this.createResult(false, errorOutput || 'Command failed', {
-        filesChanged: [],
+      return this.createResult(false, errorOutput || finalResult || 'Command failed', {
+        filesChanged,
       });
     }
   }
 
-  private parseFilesChanged(output: string): string[] {
-    const files: string[] = [];
-    const patterns = [
-      /(?:Created|Modified|Writing to|Updated|Edited)(?:\s+file)?:\s*(.+)/gi,
-      /(?:Creating|Modifying|Updating|Editing)\s+(.+\.\w+)/gi,
-    ];
-
-    for (const pattern of patterns) {
-      let match;
-      while ((match = pattern.exec(output)) !== null) {
-        const file = match[1].trim();
-        if (file && !files.includes(file)) {
-          files.push(file);
+  /**
+   * Parse a stream-json message and return an appropriate progress event
+   */
+  private parseStreamMessage(msg: ClaudeStreamMessage, filesChanged: string[]): AgentProgress | null {
+    switch (msg.type) {
+      case 'system':
+        if (msg.subtype === 'init') {
+          return this.createProgress('log', '🚀 Claude CLI initialized');
         }
-      }
-    }
+        return null;
 
-    return files;
+      case 'assistant':
+        if (msg.message?.content) {
+          for (const content of msg.message.content) {
+            if (content.type === 'text' && content.text) {
+              return this.createProgress('stdout', content.text);
+            }
+            if (content.type === 'tool_use' && content.name) {
+              const toolName = content.name;
+              const input = content.input || {};
+
+              // Track file changes from Edit/Write tools
+              if ((toolName === 'Edit' || toolName === 'Write') && input.file_path) {
+                const filePath = String(input.file_path);
+                if (!filesChanged.includes(filePath)) {
+                  filesChanged.push(filePath);
+                }
+              }
+
+              // Format tool use message
+              let toolDesc = `🔧 Using ${toolName}`;
+              if (toolName === 'Bash' && input.command) {
+                toolDesc += `: ${String(input.command).substring(0, 100)}`;
+              } else if (toolName === 'Read' && input.file_path) {
+                toolDesc += `: ${input.file_path}`;
+              } else if (toolName === 'Edit' && input.file_path) {
+                toolDesc += `: ${input.file_path}`;
+              } else if (toolName === 'Write' && input.file_path) {
+                toolDesc += `: ${input.file_path}`;
+              } else if (toolName === 'Grep' && input.pattern) {
+                toolDesc += `: ${input.pattern}`;
+              } else if (toolName === 'Glob' && input.pattern) {
+                toolDesc += `: ${input.pattern}`;
+              }
+
+              return this.createProgress('log', toolDesc);
+            }
+          }
+        }
+        return null;
+
+      case 'user':
+        // Tool results
+        if (msg.tool_use_result) {
+          const stdout = msg.tool_use_result.stdout || '';
+          const stderr = msg.tool_use_result.stderr || '';
+          if (stdout || stderr) {
+            const output = stdout + (stderr ? `\n[stderr] ${stderr}` : '');
+            // Truncate long outputs
+            const truncated = output.length > 500
+              ? output.substring(0, 500) + '...\n[output truncated]'
+              : output;
+            return this.createProgress('stdout', truncated);
+          }
+        }
+        return null;
+
+      case 'result':
+        return this.createProgress('log', msg.is_error ? '❌ Task failed' : '✅ Task completed');
+
+      default:
+        return null;
+    }
   }
 }
 
