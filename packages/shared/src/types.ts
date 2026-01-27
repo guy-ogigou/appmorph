@@ -36,7 +36,7 @@ export interface AgentRunContext {
 }
 
 export interface AgentProgress {
-  type: 'log' | 'file_change' | 'thinking';
+  type: 'log' | 'file_change' | 'thinking' | 'stdout';
   content: string;
   timestamp: number;
 }

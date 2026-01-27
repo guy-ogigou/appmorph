@@ -158,7 +158,7 @@ export class StreamingClaudeCliAgent extends BaseAgent {
     console.log(`[Agent] Spawning process: ${command} ${args.slice(0, 2).join(' ')} "<prompt>"`);
 
     // Create a queue for streaming output
-    const outputQueue: string[] = [];
+    const outputQueue: Array<{ type: 'stdout' | 'stderr'; text: string }> = [];
     let isComplete = false;
     let exitCode = 0;
     let fullOutput = '';
@@ -181,13 +181,13 @@ export class StreamingClaudeCliAgent extends BaseAgent {
     proc.stdout?.on('data', (data: Buffer) => {
       const text = data.toString();
       fullOutput += text;
-      outputQueue.push(text);
+      outputQueue.push({ type: 'stdout' as const, text });
     });
 
     proc.stderr?.on('data', (data: Buffer) => {
       const text = data.toString();
       errorOutput += text;
-      outputQueue.push(`[stderr] ${text}`);
+      outputQueue.push({ type: 'stderr' as const, text });
     });
 
     const completionPromise = new Promise<void>((resolve) => {
@@ -210,7 +210,8 @@ export class StreamingClaudeCliAgent extends BaseAgent {
     while (!isComplete || outputQueue.length > 0) {
       if (outputQueue.length > 0) {
         const chunk = outputQueue.shift()!;
-        yield this.createProgress('log', chunk.trim());
+        // Use 'stdout' type for raw console output to preserve formatting
+        yield this.createProgress('stdout', chunk.text);
       } else if (!isComplete) {
         // Wait a bit for more output
         await new Promise((r) => setTimeout(r, 100));

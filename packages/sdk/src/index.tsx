@@ -6,6 +6,39 @@ import { ApiClient } from './api/client.js';
 let containerEl: HTMLElement | null = null;
 let apiClient: ApiClient | null = null;
 let widgetIsOpen = false;
+let consoleOutput: string[] = [];
+let isRunning = false;
+let currentOptions: AppmorphInitOptions | null = null;
+
+/**
+ * Clear console output and return to prompt form.
+ */
+function handleNewTask(): void {
+  consoleOutput = [];
+  isRunning = false;
+  renderWidget();
+}
+
+/**
+ * Re-render the widget with current state.
+ */
+function renderWidget(): void {
+  if (!containerEl || !currentOptions) return;
+
+  render(
+    <Widget
+      position={currentOptions.position || 'bottom-right'}
+      theme={currentOptions.theme || 'auto'}
+      buttonLabel={currentOptions.buttonLabel}
+      onSubmit={handleSubmit}
+      onOpenChange={handleOpenChange}
+      onNewTask={handleNewTask}
+      consoleOutput={consoleOutput}
+      isRunning={isRunning}
+    />,
+    containerEl
+  );
+}
 
 /**
  * Initialize the Appmorph SDK.
@@ -19,6 +52,9 @@ function init(options: AppmorphInitOptions): void {
     throw new Error('Appmorph: auth adapter is required');
   }
 
+  // Store options for re-rendering
+  currentOptions = options;
+
   // Create API client
   apiClient = new ApiClient(options.endpoint, options.auth);
 
@@ -28,16 +64,7 @@ function init(options: AppmorphInitOptions): void {
   document.body.appendChild(containerEl);
 
   // Render widget
-  render(
-    <Widget
-      position={options.position || 'bottom-right'}
-      theme={options.theme || 'auto'}
-      buttonLabel={options.buttonLabel}
-      onSubmit={handleSubmit}
-      onOpenChange={handleOpenChange}
-    />,
-    containerEl
-  );
+  renderWidget();
 }
 
 /**
@@ -71,6 +98,9 @@ function destroy(): void {
   }
   apiClient = null;
   widgetIsOpen = false;
+  consoleOutput = [];
+  isRunning = false;
+  currentOptions = null;
 }
 
 /**
@@ -97,24 +127,46 @@ async function getTaskStatus(taskId: string): Promise<TaskStatusResponse> {
 function handleSubmit(prompt: string): void {
   if (!apiClient) return;
 
+  // Clear previous output and set running state
+  consoleOutput = [];
+  isRunning = true;
+  renderWidget();
+
   apiClient.createTask(prompt)
     .then((response) => {
       console.log('Task created:', response.taskId);
       // Stream progress via SSE
       apiClient!.streamTaskProgress(response.taskId, {
         onProgress: (progress) => {
-          console.log('Progress:', progress);
+          // Add stdout content to console output
+          if (progress.type === 'stdout' || progress.type === 'log') {
+            consoleOutput = [...consoleOutput, progress.content];
+            renderWidget();
+          }
         },
         onComplete: (result) => {
           console.log('Complete:', result);
+          isRunning = false;
+          // Add completion message
+          consoleOutput = [...consoleOutput, `\n--- Task ${result.success ? 'completed successfully' : 'failed'} ---`];
+          if (result.filesChanged.length > 0) {
+            consoleOutput = [...consoleOutput, `Files changed: ${result.filesChanged.join(', ')}`];
+          }
+          renderWidget();
         },
         onError: (error) => {
           console.error('Error:', error);
+          isRunning = false;
+          consoleOutput = [...consoleOutput, `\n--- Error: ${error.message} ---`];
+          renderWidget();
         },
       });
     })
     .catch((error) => {
       console.error('Failed to create task:', error);
+      isRunning = false;
+      consoleOutput = [...consoleOutput, `Failed to create task: ${error.message}`];
+      renderWidget();
     });
 }
 

@@ -9,6 +9,9 @@ export interface WidgetProps {
   buttonLabel?: string;
   onSubmit: (prompt: string) => void;
   onOpenChange: (open: boolean) => void;
+  onNewTask?: () => void;
+  consoleOutput?: string[];
+  isRunning?: boolean;
 }
 
 export function Widget({
@@ -17,6 +20,9 @@ export function Widget({
   buttonLabel,
   onSubmit,
   onOpenChange,
+  onNewTask,
+  consoleOutput = [],
+  isRunning = false,
 }: WidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
@@ -86,6 +92,9 @@ export function Widget({
           theme={resolvedTheme}
           onClose={() => handleToggle()}
           onSubmit={handleSubmit}
+          onNewTask={onNewTask}
+          consoleOutput={consoleOutput}
+          isRunning={isRunning}
         />
       )}
 

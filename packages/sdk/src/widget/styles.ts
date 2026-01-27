@@ -134,4 +134,70 @@ export const styles = {
     opacity: disabled ? 0.6 : 1,
     transition: 'all 0.2s ease',
   }),
+
+  // Console output styles
+  consoleContainer: (_theme: Theme): CSSProperties => ({
+    display: 'flex',
+    flexDirection: 'column',
+    height: '300px',
+    border: '1px solid var(--appmorph-border)',
+    borderRadius: '8px',
+    overflow: 'hidden',
+  }),
+
+  consoleHeader: (_theme: Theme): CSSProperties => ({
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '8px 12px',
+    backgroundColor: 'var(--appmorph-bg-panel)',
+    borderBottom: '1px solid var(--appmorph-border)',
+  }),
+
+  consoleTitle: (_theme: Theme): CSSProperties => ({
+    fontSize: '12px',
+    fontWeight: 500,
+    color: 'var(--appmorph-text-muted)',
+  }),
+
+  consoleOutput: (theme: Theme): CSSProperties => ({
+    flex: 1,
+    padding: '12px',
+    overflowY: 'auto',
+    backgroundColor: theme === 'dark' ? '#0d1117' : '#1e1e1e',
+    fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
+    fontSize: '12px',
+    lineHeight: 1.5,
+  }),
+
+  consoleLine: (_theme: Theme): CSSProperties => ({
+    margin: 0,
+    padding: 0,
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
+    color: '#d4d4d4',
+  }),
+
+  consoleWaiting: (_theme: Theme): CSSProperties => ({
+    color: '#6b7280',
+    fontStyle: 'italic',
+  }),
+
+  newTaskContainer: {
+    marginTop: '12px',
+    display: 'flex',
+    justifyContent: 'flex-end',
+  } as CSSProperties,
+
+  newTaskButton: (_theme: Theme): CSSProperties => ({
+    padding: '8px 16px',
+    borderRadius: '6px',
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: 500,
+    backgroundColor: 'var(--appmorph-primary)',
+    color: '#ffffff',
+    transition: 'all 0.2s ease',
+  }),
 };
