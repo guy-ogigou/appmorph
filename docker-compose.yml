@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  core:
+    build:
+      context: .
+      dockerfile: packages/core/Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - HOST=0.0.0.0
+    volumes:
+      # Mount repos directory for git operations
+      - ./repos:/app/repos
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Development mode with hot reload (uncomment for dev)
+  # core-dev:
+  #   build:
+  #     context: .
+  #     dockerfile: packages/core/Dockerfile
+  #     target: builder
+  #   ports:
+  #     - "3001:3001"
+  #   environment:
+  #     - NODE_ENV=development
+  #   volumes:
+  #     - ./packages/core/src:/app/packages/core/src
+  #     - ./packages/shared/src:/app/packages/shared/src
+  #   command: pnpm --filter @appmorph/core dev
+
+volumes:
+  repos:
