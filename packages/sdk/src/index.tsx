@@ -12,7 +12,7 @@ let widgetIsOpen = false;
  */
 function init(options: AppmorphInitOptions): void {
   // Validate options
-  if (!options.endpoint) {
+  if (options.endpoint === undefined || options.endpoint === null) {
     throw new Error('Appmorph: endpoint is required');
   }
   if (!options.auth) {

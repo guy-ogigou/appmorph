@@ -1,6 +1,5 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { resolve } from 'path';
 
 export default defineConfig({
   plugins: [react()],
@@ -16,13 +15,5 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
-  },
-  resolve: {
-    alias: {
-      '@appmorph/sdk': resolve(__dirname, '../../packages/sdk/src/index.tsx'),
-    },
-  },
-  optimizeDeps: {
-    include: ['preact', 'preact/hooks', 'preact/compat'],
   },
 });

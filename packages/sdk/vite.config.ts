@@ -12,11 +12,12 @@ export default defineConfig({
       formats: ['es', 'umd'],
     },
     rollupOptions: {
-      // Don't externalize preact - bundle it for UMD
+      // Bundle everything - don't externalize anything
       external: [],
       output: {
-        // Provide global variables for UMD build
         globals: {},
+        // Ensure exports work correctly
+        exports: 'named',
       },
     },
     sourcemap: true,
