@@ -6,6 +6,9 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
+    "dev:core": "pnpm --filter @appmorph/core dev",
+    "dev:demo": "pnpm --filter @appmorph/demo-app dev",
+    "start:core": "pnpm --filter @appmorph/core start",
     "lint": "turbo run lint",
     "test": "turbo run test",
     "clean": "turbo run clean && rm -rf node_modules",

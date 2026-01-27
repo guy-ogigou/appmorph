@@ -1,53 +1,252 @@
+import { spawn, ChildProcess } from 'child_process';
 import { AgentRunContext, AgentProgress, AgentResult } from '@appmorph/shared';
 import { BaseAgent } from './interface.js';
+import { getConfig } from '../config/index.js';
 
 /**
  * ClaudeCliAgent - Executes the Claude CLI to process prompts.
  *
- * In Phase 2, this will spawn the `claude` CLI process and stream
- * its output. For Phase 1, it's a stub that simulates the behavior.
+ * Spawns the `claude` CLI process with the given prompt and streams
+ * its output as progress events.
  */
 export class ClaudeCliAgent extends BaseAgent {
   readonly name = 'claude-cli';
 
   async *run(ctx: AgentRunContext): AsyncGenerator<AgentProgress, AgentResult, undefined> {
-    // Log the start of execution
-    yield this.createProgress('log', `Starting Claude CLI agent for branch: ${ctx.branch}`);
-    yield this.createProgress('log', `Prompt: ${ctx.prompt.substring(0, 100)}...`);
+    const config = getConfig();
+    const command = config.agent.command;
 
-    // Simulate thinking phase
-    yield this.createProgress('thinking', 'Analyzing the request...');
+    yield this.createProgress('log', `Starting Claude CLI agent...`);
+    yield this.createProgress('log', `Working directory: ${ctx.repoPath}`);
+    yield this.createProgress('log', `Prompt: ${ctx.prompt}`);
 
-    // In Phase 2, this would:
-    // 1. Spawn `claude` CLI with the prompt and repo context
-    // 2. Stream stdout/stderr as progress events
-    // 3. Parse file changes from the output
-    // 4. Create a commit with the changes
+    // Build the command arguments
+    const args = [
+      '--print',  // Print mode for non-interactive use
+      '--dangerously-skip-permissions',  // Skip permission prompts for automation
+      ctx.prompt,
+    ];
 
-    // For now, simulate some work
-    await this.sleep(500);
-    yield this.createProgress('log', 'Processing prompt with Claude...');
+    yield this.createProgress('log', `Executing: ${command} ${args.join(' ')}`);
 
-    await this.sleep(500);
-    yield this.createProgress('thinking', 'Determining required changes...');
+    try {
+      const result = await this.executeCommand(command, args, ctx.repoPath, (_output) => {
+        // This callback is called for each chunk of output
+        // We'll yield progress in the main loop instead
+      });
 
-    await this.sleep(500);
-    yield this.createProgress('log', 'Agent execution stubbed in Phase 1');
+      // Parse the result to extract what files were changed
+      const filesChanged = this.parseFilesChanged(result.stdout);
 
-    // Return a stub result
-    return this.createResult(true, 'Phase 1 stub - no actual changes made', {
-      filesChanged: [],
+      if (result.exitCode === 0) {
+        yield this.createProgress('log', 'Claude CLI completed successfully');
+
+        return this.createResult(true, result.stdout || 'Changes applied successfully', {
+          filesChanged,
+        });
+      } else {
+        yield this.createProgress('log', `Claude CLI failed with exit code ${result.exitCode}`);
+
+        return this.createResult(false, result.stderr || 'Command failed', {
+          filesChanged: [],
+        });
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      yield this.createProgress('log', `Error: ${errorMessage}`);
+
+      return this.createResult(false, errorMessage, {
+        filesChanged: [],
+      });
+    }
+  }
+
+  private executeCommand(
+    command: string,
+    args: string[],
+    cwd: string,
+    onOutput: (output: string) => void
+  ): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+    return new Promise((resolve, reject) => {
+      let stdout = '';
+      let stderr = '';
+
+      const proc: ChildProcess = spawn(command, args, {
+        cwd,
+        shell: true,
+        env: {
+          ...process.env,
+          // Ensure Claude CLI doesn't try to use interactive features
+          CI: 'true',
+          TERM: 'dumb',
+        },
+      });
+
+      proc.stdout?.on('data', (data: Buffer) => {
+        const text = data.toString();
+        stdout += text;
+        onOutput(text);
+      });
+
+      proc.stderr?.on('data', (data: Buffer) => {
+        const text = data.toString();
+        stderr += text;
+        onOutput(text);
+      });
+
+      proc.on('error', (error) => {
+        reject(error);
+      });
+
+      proc.on('close', (exitCode) => {
+        resolve({
+          exitCode: exitCode ?? 1,
+          stdout,
+          stderr,
+        });
+      });
     });
   }
 
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+  private parseFilesChanged(output: string): string[] {
+    const files: string[] = [];
+
+    // Look for common patterns indicating file changes
+    // Claude CLI often outputs things like:
+    // - Created file: path/to/file
+    // - Modified: path/to/file
+    // - Writing to: path/to/file
+    const patterns = [
+      /(?:Created|Modified|Writing to|Updated|Edited)(?:\s+file)?:\s*(.+)/gi,
+      /(?:Creating|Modifying|Updating|Editing)\s+(.+\.\w+)/gi,
+    ];
+
+    for (const pattern of patterns) {
+      let match;
+      while ((match = pattern.exec(output)) !== null) {
+        const file = match[1].trim();
+        if (file && !files.includes(file)) {
+          files.push(file);
+        }
+      }
+    }
+
+    return files;
+  }
+}
+
+/**
+ * Streaming version of the Claude CLI agent that yields progress as it runs.
+ */
+export class StreamingClaudeCliAgent extends BaseAgent {
+  readonly name = 'claude-cli-streaming';
+
+  async *run(ctx: AgentRunContext): AsyncGenerator<AgentProgress, AgentResult, undefined> {
+    const config = getConfig();
+    const command = config.agent.command;
+
+    yield this.createProgress('log', `Starting Claude CLI agent...`);
+    yield this.createProgress('thinking', `Analyzing: ${ctx.prompt.substring(0, 100)}...`);
+
+    const args = [
+      '--print',
+      '--dangerously-skip-permissions',
+      ctx.prompt,
+    ];
+
+    // Create a queue for streaming output
+    const outputQueue: string[] = [];
+    let isComplete = false;
+    let exitCode = 0;
+    let fullOutput = '';
+    let errorOutput = '';
+
+    const proc = spawn(command, args, {
+      cwd: ctx.repoPath,
+      shell: true,
+      env: {
+        ...process.env,
+        CI: 'true',
+        TERM: 'dumb',
+      },
+    });
+
+    proc.stdout?.on('data', (data: Buffer) => {
+      const text = data.toString();
+      fullOutput += text;
+      outputQueue.push(text);
+    });
+
+    proc.stderr?.on('data', (data: Buffer) => {
+      const text = data.toString();
+      errorOutput += text;
+      outputQueue.push(`[stderr] ${text}`);
+    });
+
+    const completionPromise = new Promise<void>((resolve) => {
+      proc.on('close', (code) => {
+        exitCode = code ?? 1;
+        isComplete = true;
+        resolve();
+      });
+
+      proc.on('error', (error) => {
+        errorOutput += error.message;
+        isComplete = true;
+        resolve();
+      });
+    });
+
+    // Yield progress as output comes in
+    while (!isComplete || outputQueue.length > 0) {
+      if (outputQueue.length > 0) {
+        const chunk = outputQueue.shift()!;
+        yield this.createProgress('log', chunk.trim());
+      } else if (!isComplete) {
+        // Wait a bit for more output
+        await new Promise((r) => setTimeout(r, 100));
+      }
+    }
+
+    await completionPromise;
+
+    const filesChanged = this.parseFilesChanged(fullOutput);
+
+    if (exitCode === 0) {
+      return this.createResult(true, 'Changes applied successfully', {
+        filesChanged,
+      });
+    } else {
+      return this.createResult(false, errorOutput || 'Command failed', {
+        filesChanged: [],
+      });
+    }
+  }
+
+  private parseFilesChanged(output: string): string[] {
+    const files: string[] = [];
+    const patterns = [
+      /(?:Created|Modified|Writing to|Updated|Edited)(?:\s+file)?:\s*(.+)/gi,
+      /(?:Creating|Modifying|Updating|Editing)\s+(.+\.\w+)/gi,
+    ];
+
+    for (const pattern of patterns) {
+      let match;
+      while ((match = pattern.exec(output)) !== null) {
+        const file = match[1].trim();
+        if (file && !files.includes(file)) {
+          files.push(file);
+        }
+      }
+    }
+
+    return files;
   }
 }
 
 /**
  * Factory function to create the default agent.
  */
-export function createDefaultAgent(): ClaudeCliAgent {
-  return new ClaudeCliAgent();
+export function createDefaultAgent(): StreamingClaudeCliAgent {
+  return new StreamingClaudeCliAgent();
 }

@@ -1,40 +1,107 @@
+import { existsSync, readdirSync, statSync } from 'fs';
+import { join, relative } from 'path';
+
 /**
- * Repository management module.
- * Phase 2 will implement git clone/pull operations using simple-git.
+ * Repository/Project manager interface.
+ * For the initial prototype, this works with local folders.
+ * Will be extended to support git operations in the future.
  */
-
 export interface RepoManager {
-  clone(url: string, targetPath: string): Promise<void>;
-  pull(repoPath: string): Promise<void>;
-  checkout(repoPath: string, branch: string, create?: boolean): Promise<void>;
-  commit(repoPath: string, message: string, files?: string[]): Promise<string>;
-  push(repoPath: string, branch: string): Promise<void>;
+  /** Get the project root path */
+  getProjectPath(): string;
+
+  /** Check if the project path exists and is valid */
+  validate(): boolean;
+
+  /** List files in the project (excluding node_modules, etc.) */
+  listFiles(subPath?: string): string[];
+
+  /** Get a file path relative to the project root */
+  getFilePath(relativePath: string): string;
+
+  /** Check if a file exists in the project */
+  fileExists(relativePath: string): boolean;
 }
 
-// Stub implementation for Phase 1
-export class GitRepoManager implements RepoManager {
-  async clone(url: string, targetPath: string): Promise<void> {
-    console.log(`[Stub] Would clone ${url} to ${targetPath}`);
+const IGNORED_DIRS = new Set([
+  'node_modules',
+  '.git',
+  '.next',
+  '.turbo',
+  'dist',
+  'build',
+  'coverage',
+  '.cache',
+]);
+
+const IGNORED_FILES = new Set([
+  '.DS_Store',
+  'Thumbs.db',
+]);
+
+export class FolderRepoManager implements RepoManager {
+  constructor(private projectPath: string) {}
+
+  getProjectPath(): string {
+    return this.projectPath;
   }
 
-  async pull(repoPath: string): Promise<void> {
-    console.log(`[Stub] Would pull in ${repoPath}`);
+  validate(): boolean {
+    if (!existsSync(this.projectPath)) {
+      return false;
+    }
+    const stat = statSync(this.projectPath);
+    return stat.isDirectory();
   }
 
-  async checkout(repoPath: string, branch: string, create = false): Promise<void> {
-    console.log(`[Stub] Would checkout ${branch} in ${repoPath} (create: ${create})`);
+  listFiles(subPath?: string): string[] {
+    const basePath = subPath ? join(this.projectPath, subPath) : this.projectPath;
+    const files: string[] = [];
+
+    const walk = (dir: string) => {
+      if (!existsSync(dir)) return;
+
+      const entries = readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (IGNORED_DIRS.has(entry.name) || IGNORED_FILES.has(entry.name)) {
+          continue;
+        }
+
+        const fullPath = join(dir, entry.name);
+        const relativePath = relative(this.projectPath, fullPath);
+
+        if (entry.isDirectory()) {
+          walk(fullPath);
+        } else if (entry.isFile()) {
+          files.push(relativePath);
+        }
+      }
+    };
+
+    walk(basePath);
+    return files.sort();
   }
 
-  async commit(repoPath: string, message: string, files?: string[]): Promise<string> {
-    console.log(`[Stub] Would commit in ${repoPath}: ${message}`, files ? `(${files.length} files)` : '');
-    return 'stub-commit-sha';
+  getFilePath(relativePath: string): string {
+    return join(this.projectPath, relativePath);
   }
 
-  async push(repoPath: string, branch: string): Promise<void> {
-    console.log(`[Stub] Would push ${branch} in ${repoPath}`);
+  fileExists(relativePath: string): boolean {
+    return existsSync(this.getFilePath(relativePath));
   }
 }
 
-export function createRepoManager(): RepoManager {
-  return new GitRepoManager();
+// Singleton instance
+let repoManagerInstance: RepoManager | null = null;
+
+export function initRepoManager(projectPath: string): RepoManager {
+  repoManagerInstance = new FolderRepoManager(projectPath);
+  return repoManagerInstance;
+}
+
+export function getRepoManager(): RepoManager {
+  if (!repoManagerInstance) {
+    throw new Error('RepoManager not initialized. Call initRepoManager first.');
+  }
+  return repoManagerInstance;
 }

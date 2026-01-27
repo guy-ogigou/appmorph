@@ -23,6 +23,12 @@ importers:
       '@appmorph/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
+      '@appmorph/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      preact:
+        specifier: ^10.19.3
+        version: 10.28.2
       react:
         specifier: ^18.2.0
         version: 18.3.1

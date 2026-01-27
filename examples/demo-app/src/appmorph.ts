@@ -13,8 +13,9 @@ export function initAppmorph() {
   );
 
   // Initialize the SDK
+  // Use empty string for endpoint to use relative URLs (proxied via vite in dev)
   Appmorph.init({
-    endpoint: 'http://localhost:3001',
+    endpoint: '',
     auth: authAdapter,
     position: 'bottom-right',
     theme: 'auto',
