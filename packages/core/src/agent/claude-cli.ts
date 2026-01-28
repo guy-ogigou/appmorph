@@ -71,12 +71,22 @@ export class ClaudeCliAgent extends BaseAgent {
       let stdout = '';
       let stderr = '';
 
+      // Filter out Node.js debugger environment variables to prevent child process
+      // from trying to attach to a debugger when parent is run with --inspect
+      const cleanEnv = Object.fromEntries(
+        Object.entries(process.env).filter(([key]) =>
+          !key.startsWith('NODE_OPTIONS') &&
+          !key.startsWith('NODE_INSPECT') &&
+          !key.startsWith('INSPECTOR_')
+        )
+      );
+
       const proc: ChildProcess = spawn(command, args, {
         cwd,
         shell: false,
         stdio: ['pipe', 'pipe', 'pipe'],
         env: {
-          ...process.env,
+          ...cleanEnv,
           // Ensure Claude CLI doesn't try to use interactive features
           CI: 'true',
           TERM: 'dumb',
@@ -193,12 +203,22 @@ export class StreamingClaudeCliAgent extends BaseAgent {
     const filesChanged: string[] = [];
     let lineBuffer = '';
 
+    // Filter out Node.js debugger environment variables to prevent child process
+    // from trying to attach to a debugger when parent is run with --inspect
+    const cleanEnv = Object.fromEntries(
+      Object.entries(process.env).filter(([key]) =>
+        !key.startsWith('NODE_OPTIONS') &&
+        !key.startsWith('NODE_INSPECT') &&
+        !key.startsWith('INSPECTOR_')
+      )
+    );
+
     const proc = spawn(command, args, {
       cwd: ctx.repoPath,
       shell: false,
       stdio: ['ignore', 'pipe', 'pipe'],
       env: {
-        ...process.env,
+        ...cleanEnv,
         CI: 'true',
         TERM: 'dumb',
         NONINTERACTIVE: '1',
@@ -222,7 +242,7 @@ export class StreamingClaudeCliAgent extends BaseAgent {
         try {
           const msg: ClaudeStreamMessage = JSON.parse(line);
           console.log(`[Agent] Parsed message type: ${msg.type}${msg.subtype ? '/' + msg.subtype : ''}`);
-          const progress = this.parseStreamMessage(msg, filesChanged);
+          const progress = this.parseStreamMessage(msg, filesChanged, ctx.repoPath);
           if (progress) {
             console.log(`[Agent] Queueing progress (${progress.type}): ${progress.content.substring(0, 80)}...`);
             outputQueue.push(progress);
@@ -256,7 +276,7 @@ export class StreamingClaudeCliAgent extends BaseAgent {
         if (lineBuffer.trim()) {
           try {
             const msg: ClaudeStreamMessage = JSON.parse(lineBuffer);
-            const progress = this.parseStreamMessage(msg, filesChanged);
+            const progress = this.parseStreamMessage(msg, filesChanged, ctx.repoPath);
             if (progress) {
               outputQueue.push(progress);
             }
@@ -305,9 +325,50 @@ export class StreamingClaudeCliAgent extends BaseAgent {
   }
 
   /**
+   * Make an absolute path shorter by making it relative to the working directory
+   * or showing a relative path with ../ for parent directories
+   */
+  private makeRelativePath(filePath: string, cwd: string): string {
+    // If path is within cwd, make it relative
+    if (filePath.startsWith(cwd + '/')) {
+      return filePath.slice(cwd.length + 1);
+    }
+    if (filePath === cwd) {
+      return '.';
+    }
+
+    // Find common ancestor and create relative path
+    const fileSegments = filePath.split('/');
+    const cwdSegments = cwd.split('/');
+
+    let commonLength = 0;
+    for (let i = 0; i < Math.min(fileSegments.length, cwdSegments.length); i++) {
+      if (fileSegments[i] === cwdSegments[i]) {
+        commonLength = i + 1;
+      } else {
+        break;
+      }
+    }
+
+    // If there's a common ancestor, build relative path
+    if (commonLength > 0) {
+      const upCount = cwdSegments.length - commonLength;
+      const remainingPath = fileSegments.slice(commonLength).join('/');
+      if (upCount === 0) {
+        return remainingPath;
+      }
+      const upPath = '../'.repeat(upCount);
+      return upPath + remainingPath;
+    }
+
+    // No common ancestor, return original path
+    return filePath;
+  }
+
+  /**
    * Parse a stream-json message and return an appropriate progress event
    */
-  private parseStreamMessage(msg: ClaudeStreamMessage, filesChanged: string[]): AgentProgress | null {
+  private parseStreamMessage(msg: ClaudeStreamMessage, filesChanged: string[], cwd: string): AgentProgress | null {
     switch (msg.type) {
       case 'system':
         if (msg.subtype === 'init') {
@@ -338,11 +399,11 @@ export class StreamingClaudeCliAgent extends BaseAgent {
               if (toolName === 'Bash' && input.command) {
                 toolDesc += `: ${String(input.command).substring(0, 100)}`;
               } else if (toolName === 'Read' && input.file_path) {
-                toolDesc += `: ${input.file_path}`;
+                toolDesc += `: ${this.makeRelativePath(String(input.file_path), cwd)}`;
               } else if (toolName === 'Edit' && input.file_path) {
-                toolDesc += `: ${input.file_path}`;
+                toolDesc += `: ${this.makeRelativePath(String(input.file_path), cwd)}`;
               } else if (toolName === 'Write' && input.file_path) {
-                toolDesc += `: ${input.file_path}`;
+                toolDesc += `: ${this.makeRelativePath(String(input.file_path), cwd)}`;
               } else if (toolName === 'Grep' && input.pattern) {
                 toolDesc += `: ${input.pattern}`;
               } else if (toolName === 'Glob' && input.pattern) {
