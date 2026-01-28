@@ -51,6 +51,7 @@ class TaskExecutorImpl extends EventEmitter implements TaskExecutor {
 
         // Emit progress event
         const progress = value as AgentProgress;
+        console.log(`[Executor] Progress (${progress.type}): ${progress.content.substring(0, 100)}${progress.content.length > 100 ? '...' : ''}`);
         this.emit('progress', task.id, progress);
       }
 

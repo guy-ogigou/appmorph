@@ -209,6 +209,7 @@ export class StreamingClaudeCliAgent extends BaseAgent {
 
     proc.stdout?.on('data', (data: Buffer) => {
       const text = data.toString();
+      console.log(`[Agent] Raw stdout (${text.length} chars): ${text.substring(0, 100)}...`);
       lineBuffer += text;
 
       // Process complete JSON lines
@@ -220,8 +221,10 @@ export class StreamingClaudeCliAgent extends BaseAgent {
 
         try {
           const msg: ClaudeStreamMessage = JSON.parse(line);
+          console.log(`[Agent] Parsed message type: ${msg.type}${msg.subtype ? '/' + msg.subtype : ''}`);
           const progress = this.parseStreamMessage(msg, filesChanged);
           if (progress) {
+            console.log(`[Agent] Queueing progress (${progress.type}): ${progress.content.substring(0, 80)}...`);
             outputQueue.push(progress);
           }
 
