@@ -12,6 +12,7 @@ export interface WidgetProps {
   onNewTask?: () => void;
   consoleOutput?: string[];
   isRunning?: boolean;
+  stageUrl?: string;
 }
 
 export function Widget({
@@ -23,6 +24,7 @@ export function Widget({
   onNewTask,
   consoleOutput = [],
   isRunning = false,
+  stageUrl,
 }: WidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
@@ -95,6 +97,7 @@ export function Widget({
           onNewTask={onNewTask}
           consoleOutput={consoleOutput}
           isRunning={isRunning}
+          stageUrl={stageUrl}
         />
       )}
 

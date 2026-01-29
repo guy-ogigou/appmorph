@@ -11,14 +11,20 @@ Appmorph consists of two main components:
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   Your App      │     │  Appmorph Core  │     │   Git Repo      │
-│   + SDK Widget  │────▶│  (Backend)      │────▶│   (Your Code)   │
+│   Your App      │     │  Appmorph Core  │     │   Source Code   │
+│   + SDK Widget  │────▶│  (Backend)      │────▶│   (Local FS)    │
 └─────────────────┘     └─────────────────┘     └─────────────────┘
                               │
                               ▼
                         ┌─────────────────┐
                         │   AI Agent      │
                         │   (Claude CLI)  │
+                        └─────────────────┘
+                              │
+                              ▼
+                        ┌─────────────────┐
+                        │  Deploy Server  │
+                        │ (Cookie Proxy)  │
                         └─────────────────┘
 ```
 
@@ -28,6 +34,7 @@ Appmorph consists of two main components:
 
 - Node.js >= 18
 - pnpm >= 8
+- Claude CLI installed and authenticated
 
 ### Installation
 
@@ -43,17 +50,31 @@ pnpm install
 pnpm build
 ```
 
+### Configuration
+
+Create an `appmorph.json` file in your project root (required):
+
+```json
+{
+  "source_type": "file_system",
+  "source_location": "./examples/demo-app",
+  "build_command": "npx vite build --outDir <dist>",
+  "deploy_type": "file_system",
+  "deploy_root": "./deploy"
+}
+```
+
 ### Running Locally
 
 ```bash
-# Start the backend
+# Start the backend (also starts the deploy server)
 pnpm --filter @appmorph/core dev
 
-# In another terminal, start the demo app
+# In another terminal, start the demo app with SDK
 pnpm --filter @appmorph/demo-app dev
 ```
 
-The backend runs on `http://localhost:3001` and the demo app on `http://localhost:3000`.
+The API server runs on `http://localhost:3002`, the deploy server on `http://localhost:3003`, and the demo app on `http://localhost:5173`.
 
 ### Using Docker
 
@@ -85,46 +106,63 @@ appmorph/
 
 ## How It Works
 
-1. **User submits a prompt** via the SDK widget
-2. **Backend creates a task** and assigns it to a branch (`appmorph/u/<userId>` or `appmorph/g/<groupId>`)
-3. **AI agent processes the prompt** and makes code changes
-4. **Changes are committed** to the branch
-5. **User can preview** changes via staging deployment
-6. **User can promote** changes to production
+1. **User submits a prompt** via the SDK widget embedded in your app
+2. **Backend creates a staging copy** of your source code in `./stage/<session_id>`
+3. **AI agent processes the prompt** and modifies the staged copy
+4. **Build executes** using your configured `build_command`, outputs to `./deploy/<session_id>`
+5. **User clicks "Open Stage"** to view changes (sets `appmorph_session` cookie)
+6. **Deploy server routes requests** based on the session cookie
+7. **User can revert** by clicking "Revert" in the widget (deletes cookie, refreshes page)
 
-## Branch Strategy
+## Architecture
 
-Appmorph uses a branch-per-user/group strategy:
+### Staging Workflow
 
-- `appmorph/u/<userId>` - Personal branches for individual users
-- `appmorph/g/<groupId>` - Shared branches for groups/teams
+When a task is submitted:
+
+```
+Source Code          Stage Copy              Build Output
+./examples/demo-app → ./stage/<session_id> → ./deploy/<session_id>
+                           ↑
+                     Agent modifies here
+```
+
+### Cookie-Based Routing
+
+The deploy server (port 3003) uses the `appmorph_session` cookie to route requests:
+
+- **No cookie** → Serves default app from `./deploy/`
+- **With cookie** → Serves variant from `./deploy/<session_id>/`
+
+This allows clean URLs without session IDs in the path, and users can seamlessly switch between the default and modified versions.
 
 ## Configuration
 
-Create an `appmorph.json` in your repository root:
+Create an `appmorph.json` in your project root (required):
 
 ```json
 {
-  "version": "1",
-  "repo": {
-    "type": "github",
-    "url": "https://github.com/your-org/your-app",
-    "defaultBranch": "main"
-  },
-  "agent": {
-    "type": "claude-cli",
-    "instructions": "You are modifying a React application..."
-  },
-  "constraints": {
-    "allowedPaths": ["src/**"],
-    "blockedPaths": ["src/config/**", ".env*"],
-    "blockedCommands": ["rm -rf", "DROP TABLE"]
-  },
-  "plugins": [
-    { "name": "@appmorph/plugin-amplify-deploy" }
-  ]
+  "source_type": "file_system",
+  "source_location": "./examples/demo-app",
+  "build_command": "npx vite build --outDir <dist>",
+  "deploy_type": "file_system",
+  "deploy_root": "./deploy"
 }
 ```
+
+### Configuration Options
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `source_type` | `"file_system"` | Source code location type |
+| `source_location` | `string` | Path to source code (relative or absolute) |
+| `build_command` | `string` | Build command with `<dist>` placeholder for output directory |
+| `deploy_type` | `"file_system"` | Deployment type |
+| `deploy_root` | `string` | Directory for built output |
+
+The `<dist>` placeholder in `build_command` is replaced at runtime:
+- Default app build: replaced with `deploy_root`
+- Session build: replaced with `deploy_root/<session_id>`
 
 ## SDK Integration
 
@@ -175,21 +213,29 @@ pnpm clean
 
 ## API Endpoints
 
+API server runs on port 3002 by default.
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/health` | Health check |
-| POST | `/api/task` | Create a new task |
+| POST | `/api/task` | Create a new task (stages source, runs agent, builds) |
 | GET | `/api/task/:taskId` | Get task status |
 | GET | `/api/task/:taskId/stream` | Stream task progress (SSE) |
-| GET | `/api/version` | Get version mappings |
-| POST | `/api/promote` | Promote a version |
-| POST | `/api/revert` | Revert to previous version |
+
+## Deploy Server
+
+The deploy server runs on port 3003 and serves built applications:
+
+| Cookie | Behavior |
+|--------|----------|
+| None | Serves `./deploy/` (default app) |
+| `appmorph_session=<id>` | Serves `./deploy/<id>/` (modified variant) |
 
 ## Roadmap
 
 - [x] **Phase 1**: Foundation (monorepo, types, skeleton)
-- [ ] **Phase 2**: Core functionality (git ops, agent execution, streaming)
-- [ ] **Phase 3**: Deploy & promote (staging, production, plugins)
+- [x] **Phase 2**: Core functionality (agent execution, streaming)
+- [x] **Phase 3**: Staging & deployment (file system staging, build, cookie-based proxy)
 - [ ] **Phase 4**: Polish & production (security, rate limiting, docs)
 
 ## License

@@ -24,11 +24,13 @@
   "dependencies": {
     "@appmorph/shared": "workspace:*",
     "@fastify/cors": "^9.0.1",
+    "cookie": "^0.6.0",
     "fastify": "^4.26.0",
     "simple-git": "^3.22.0",
     "uuid": "^9.0.1"
   },
   "devDependencies": {
+    "@types/cookie": "^0.6.0",
     "@types/node": "^20.11.0",
     "@types/uuid": "^9.0.8",
     "tsx": "^4.7.0",

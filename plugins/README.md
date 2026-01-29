@@ -2,6 +2,16 @@
 
 Plugins extend Appmorph's functionality by hooking into various lifecycle events.
 
+## Built-in Staging & Deployment
+
+Appmorph includes built-in file system staging and deployment:
+
+- **Staging**: Copies source to `./stage/<session_id>` before agent runs
+- **Building**: Executes configured `build_command` after agent completes
+- **Deployment**: Cookie-based reverse proxy serves built output
+
+Plugins can hook into these processes to add custom behavior (e.g., deploy to cloud providers).
+
 ## Available Plugins
 
 | Plugin | Description |

@@ -1,0 +1,7 @@
+{
+  "source_type": "file_system",
+  "source_location": "./examples/demo-app",
+  "build_command": "npx vite build --outDir <dist>",
+  "deploy_type": "file_system",
+  "deploy_root": "./deploy"
+}

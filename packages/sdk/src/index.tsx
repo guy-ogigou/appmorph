@@ -9,6 +9,7 @@ let widgetIsOpen = false;
 let consoleOutput: string[] = [];
 let isRunning = false;
 let currentOptions: AppmorphInitOptions | null = null;
+let currentStageUrl: string | undefined = undefined;
 
 /**
  * Clear console output and return to prompt form.
@@ -16,6 +17,7 @@ let currentOptions: AppmorphInitOptions | null = null;
 function handleNewTask(): void {
   consoleOutput = [];
   isRunning = false;
+  currentStageUrl = undefined;
   renderWidget();
 }
 
@@ -35,6 +37,7 @@ function renderWidget(): void {
       onNewTask={handleNewTask}
       consoleOutput={consoleOutput}
       isRunning={isRunning}
+      stageUrl={currentStageUrl}
     />,
     containerEl
   );
@@ -101,6 +104,7 @@ function destroy(): void {
   consoleOutput = [];
   isRunning = false;
   currentOptions = null;
+  currentStageUrl = undefined;
 }
 
 /**
@@ -151,6 +155,11 @@ function handleSubmit(prompt: string): void {
           consoleOutput = [...consoleOutput, `\n--- Task ${result.success ? 'completed successfully' : 'failed'} ---`];
           if (result.filesChanged.length > 0) {
             consoleOutput = [...consoleOutput, `Files changed: ${result.filesChanged.join(', ')}`];
+          }
+          // Extract deploy URL if available
+          if (result.deployInfo?.deployUrl) {
+            currentStageUrl = result.deployInfo.deployUrl;
+            consoleOutput = [...consoleOutput, `Deploy URL: ${result.deployInfo.deployUrl}`];
           }
           renderWidget();
         },

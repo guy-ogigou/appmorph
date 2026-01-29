@@ -22,6 +22,12 @@ import {
   AgentResult,
   AppmorphConfig,
 
+  // Staging & Deployment Types
+  AppmorphProjectConfig,
+  StageInfo,
+  DeployInfo,
+  BuildResult,
+
   // Constants
   BRANCH_PREFIX,
   API_ROUTES,
@@ -52,7 +58,7 @@ interface AuthAdapter {
 ```typescript
 interface AgentRunContext {
   prompt: string;
-  repoPath: string;
+  repoPath: string;  // Points to staged copy during execution
   branch: string;
   instructions?: string;
   constraints: AgentConstraints;
@@ -70,6 +76,8 @@ interface AgentResult {
   filesChanged: string[];
   summary: string;
   testResults?: TestResult[];
+  stageInfo?: StageInfo;
+  deployInfo?: DeployInfo;
 }
 
 interface AgentConstraints {
@@ -79,6 +87,35 @@ interface AgentConstraints {
   blockedCommands?: string[];
   maxFileSize?: number;
   maxTotalChanges?: number;
+}
+```
+
+### Staging & Deployment
+
+```typescript
+interface AppmorphProjectConfig {
+  source_type: 'file_system';
+  source_location: string;
+  build_command: string;  // Must contain <dist> placeholder
+  deploy_type: 'file_system';
+  deploy_root: string;
+}
+
+interface StageInfo {
+  sessionId: string;
+  stagePath: string;
+}
+
+interface DeployInfo {
+  sessionId: string;
+  deployPath: string;
+  deployUrl: string;
+}
+
+interface BuildResult {
+  success: boolean;
+  output?: string;
+  error?: string;
 }
 ```
 

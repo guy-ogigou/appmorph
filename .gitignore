@@ -42,3 +42,5 @@ repos/
 
 # Claude Code local settings
 .claude/
+packages/core/stage
+deploy/

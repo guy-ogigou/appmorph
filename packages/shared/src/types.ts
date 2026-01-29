@@ -54,6 +54,8 @@ export interface AgentResult {
   filesChanged: string[];
   summary: string;
   testResults?: TestResult[];
+  stageInfo?: StageInfo;
+  deployInfo?: DeployInfo;
 }
 
 // ============================================
@@ -126,6 +128,35 @@ export interface RevertRequest {
 export interface RevertResponse {
   success: boolean;
   revertedTo: string;
+}
+
+// ============================================
+// Staging & Deployment Types
+// ============================================
+
+export interface AppmorphProjectConfig {
+  source_type: 'file_system';
+  source_location: string;
+  build_command: string;  // must contain <dist>
+  deploy_type: 'file_system';
+  deploy_root: string;
+}
+
+export interface StageInfo {
+  sessionId: string;
+  stagePath: string;
+}
+
+export interface DeployInfo {
+  sessionId: string;
+  deployPath: string;
+  deployUrl: string;
+}
+
+export interface BuildResult {
+  success: boolean;
+  output?: string;
+  error?: string;
 }
 
 // ============================================

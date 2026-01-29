@@ -1,6 +1,7 @@
-import { existsSync } from 'fs';
-import { resolve } from 'path';
+import { existsSync, readFileSync } from 'fs';
+import { resolve, dirname } from 'path';
 import { execSync } from 'child_process';
+import { AppmorphProjectConfig } from '@appmorph/shared';
 
 export interface AppConfig {
   port: number;
@@ -117,4 +118,125 @@ export function getConfig(): AppConfig {
     configInstance = loadConfig();
   }
   return configInstance;
+}
+
+// ============================================
+// Project Config (appmorph.json)
+// ============================================
+
+let projectConfigInstance: AppmorphProjectConfig | null = null;
+
+/**
+ * Find appmorph.json by searching upward from the starting directory.
+ */
+function findAppmorphConfig(startPath: string): string | null {
+  let currentPath = startPath;
+
+  while (true) {
+    const configPath = resolve(currentPath, 'appmorph.json');
+    if (existsSync(configPath)) {
+      return configPath;
+    }
+
+    const parentPath = dirname(currentPath);
+    if (parentPath === currentPath) {
+      // Reached filesystem root
+      return null;
+    }
+    currentPath = parentPath;
+  }
+}
+
+/**
+ * Load and validate appmorph.json configuration file.
+ * Searches upward from cwd to find the config file.
+ * This is mandatory - fails startup if missing or invalid.
+ */
+export function loadAppmorphProjectConfig(basePath?: string): AppmorphProjectConfig {
+  const searchPath = basePath || process.cwd();
+  const configPath = findAppmorphConfig(searchPath);
+
+  if (!configPath) {
+    console.error('\n❌ Configuration Error\n');
+    console.error('appmorph.json not found. This file is required.');
+    console.error(`\nSearched upward from: ${searchPath}`);
+    console.error('\nCreate an appmorph.json file in your project root with the following structure:');
+    console.error(`
+{
+  "source_type": "file_system",
+  "source_location": "./path/to/source",
+  "build_command": "npm run build -- --outDir <dist>",
+  "deploy_type": "file_system",
+  "deploy_root": "./deploy"
+}
+`);
+    process.exit(1);
+  }
+
+  console.log(`Found appmorph.json at: ${configPath}`);
+
+  let config: AppmorphProjectConfig;
+  try {
+    const content = readFileSync(configPath, 'utf-8');
+    config = JSON.parse(content) as AppmorphProjectConfig;
+  } catch (error) {
+    console.error('\n❌ Configuration Error\n');
+    console.error(`Failed to parse appmorph.json: ${error instanceof Error ? error.message : String(error)}`);
+    process.exit(1);
+  }
+
+  // Validate required fields
+  const errors: string[] = [];
+
+  if (config.source_type !== 'file_system') {
+    errors.push('source_type must be "file_system"');
+  }
+
+  if (!config.source_location) {
+    errors.push('source_location is required');
+  }
+
+  if (!config.build_command) {
+    errors.push('build_command is required');
+  } else if (!config.build_command.includes('<dist>')) {
+    errors.push('build_command must contain <dist> placeholder');
+  }
+
+  if (config.deploy_type !== 'file_system') {
+    errors.push('deploy_type must be "file_system"');
+  }
+
+  if (!config.deploy_root) {
+    errors.push('deploy_root is required');
+  }
+
+  if (errors.length > 0) {
+    console.error('\n❌ Configuration Error\n');
+    console.error('appmorph.json validation failed:\n');
+    for (const error of errors) {
+      console.error(`  • ${error}`);
+    }
+    process.exit(1);
+  }
+
+  // Resolve relative paths to absolute
+  const configDir = dirname(configPath);
+  config.source_location = resolve(configDir, config.source_location);
+  config.deploy_root = resolve(configDir, config.deploy_root);
+
+  // Validate source location exists
+  if (!existsSync(config.source_location)) {
+    console.error('\n❌ Configuration Error\n');
+    console.error(`source_location does not exist: ${config.source_location}`);
+    process.exit(1);
+  }
+
+  return config;
+}
+
+export function getAppmorphProjectConfig(): AppmorphProjectConfig {
+  if (!projectConfigInstance) {
+    projectConfigInstance = loadAppmorphProjectConfig();
+  }
+  return projectConfigInstance;
 }

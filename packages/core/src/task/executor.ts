@@ -5,9 +5,13 @@ import {
   AgentResult,
   AgentRunContext,
   AgentConstraints,
+  StageInfo,
+  DeployInfo,
 } from '@appmorph/shared';
 import { createDefaultAgent } from '../agent/claude-cli.js';
-import { getRepoManager } from '../repo/index.js';
+import { getStagingManager } from '../staging/index.js';
+import { getBuildManager } from '../build/index.js';
+import { getDeployManager } from '../deploy/index.js';
 
 export interface TaskExecutor extends EventEmitter {
   execute(task: Task): Promise<AgentResult>;
@@ -23,11 +27,33 @@ class TaskExecutorImpl extends EventEmitter implements TaskExecutor {
     console.log(`[Executor] Starting task ${task.id}: "${task.prompt.substring(0, 50)}..."`);
 
     const agent = createDefaultAgent();
-    const repoManager = getRepoManager();
+    let stageInfo: StageInfo | undefined;
+    let deployInfo: DeployInfo | undefined;
 
+    // Step 1: Create staging directory
+    try {
+      const stagingManager = getStagingManager();
+      stageInfo = stagingManager.createStage(task.id);
+      console.log(`[Executor] Stage created at: ${stageInfo.stagePath}`);
+
+      this.emit('progress', task.id, {
+        type: 'log',
+        content: `Stage created at: ${stageInfo.stagePath}`,
+        timestamp: Date.now(),
+      });
+    } catch (error) {
+      console.error(`[Executor] Failed to create stage: ${error}`);
+      return {
+        success: false,
+        summary: `Failed to create staging directory: ${error instanceof Error ? error.message : String(error)}`,
+        filesChanged: [],
+      };
+    }
+
+    // Step 2: Run the agent on the staged copy
     const context: AgentRunContext = {
       prompt: task.prompt,
-      repoPath: repoManager.getProjectPath(),
+      repoPath: stageInfo.stagePath,  // Use staged path, not original source
       branch: task.branch,
       constraints: this.getDefaultConstraints(),
     };
@@ -45,7 +71,7 @@ class TaskExecutorImpl extends EventEmitter implements TaskExecutor {
 
         if (done) {
           result = value as AgentResult;
-          console.log(`[Executor] Task ${task.id} completed: ${result.success ? 'success' : 'failed'}`);
+          console.log(`[Executor] Task ${task.id} agent completed: ${result.success ? 'success' : 'failed'}`);
           break;
         }
 
@@ -63,6 +89,52 @@ class TaskExecutorImpl extends EventEmitter implements TaskExecutor {
         };
       }
 
+      // Step 3: If agent succeeded, execute build
+      if (result.success) {
+        try {
+          const buildManager = getBuildManager();
+          const deployManager = getDeployManager();
+
+          this.emit('progress', task.id, {
+            type: 'log',
+            content: 'Starting build...',
+            timestamp: Date.now(),
+          });
+
+          const buildResult = await buildManager.executeBuild(task.id, stageInfo.stagePath);
+
+          if (buildResult.success) {
+            console.log(`[Executor] Build completed successfully`);
+            deployInfo = deployManager.getDeployInfo(task.id);
+
+            this.emit('progress', task.id, {
+              type: 'log',
+              content: `Build completed. Deploy URL: ${deployInfo.deployUrl}`,
+              timestamp: Date.now(),
+            });
+          } else {
+            console.error(`[Executor] Build failed: ${buildResult.error}`);
+            this.emit('progress', task.id, {
+              type: 'log',
+              content: `Build failed: ${buildResult.error}`,
+              timestamp: Date.now(),
+            });
+            // Don't fail the whole task if build fails, just don't include deploy info
+          }
+        } catch (error) {
+          console.error(`[Executor] Build error: ${error}`);
+          this.emit('progress', task.id, {
+            type: 'log',
+            content: `Build error: ${error instanceof Error ? error.message : String(error)}`,
+            timestamp: Date.now(),
+          });
+        }
+      }
+
+      // Add stage and deploy info to result
+      result.stageInfo = stageInfo;
+      result.deployInfo = deployInfo;
+
       this.emit('complete', task.id, result);
       return result;
     } catch (error) {
@@ -73,6 +145,7 @@ class TaskExecutorImpl extends EventEmitter implements TaskExecutor {
         success: false,
         summary: errorObj.message,
         filesChanged: [],
+        stageInfo,
       };
     } finally {
       this.runningTasks.delete(task.id);

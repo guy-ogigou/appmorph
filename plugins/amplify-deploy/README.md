@@ -2,6 +2,8 @@
 
 AWS Amplify deployment plugin for Appmorph. Automatically deploys preview and production builds via AWS Amplify.
 
+> **Note**: This plugin provides cloud-based deployment as an alternative to the built-in file system deployment. Use this when you need AWS Amplify-hosted preview URLs instead of local file serving.
+
 ## Installation
 
 ```bash

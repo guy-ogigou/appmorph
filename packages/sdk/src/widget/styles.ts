@@ -187,6 +187,7 @@ export const styles = {
     marginTop: '12px',
     display: 'flex',
     justifyContent: 'flex-end',
+    gap: '8px',
   } as CSSProperties,
 
   newTaskButton: (_theme: Theme): CSSProperties => ({
@@ -198,6 +199,30 @@ export const styles = {
     fontWeight: 500,
     backgroundColor: 'var(--appmorph-primary)',
     color: '#ffffff',
+    transition: 'all 0.2s ease',
+  }),
+
+  openStageButton: (_theme: Theme): CSSProperties => ({
+    padding: '8px 16px',
+    borderRadius: '6px',
+    border: '1px solid var(--appmorph-primary)',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: 500,
+    backgroundColor: 'transparent',
+    color: 'var(--appmorph-primary)',
+    transition: 'all 0.2s ease',
+  }),
+
+  revertButton: (_theme: Theme): CSSProperties => ({
+    padding: '4px 8px',
+    borderRadius: '4px',
+    border: '1px solid var(--appmorph-border)',
+    cursor: 'pointer',
+    fontSize: '12px',
+    fontWeight: 500,
+    backgroundColor: 'transparent',
+    color: 'var(--appmorph-text-muted)',
     transition: 'all 0.2s ease',
   }),
 };

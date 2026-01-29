@@ -30,13 +30,34 @@ const auth = createStaticAuthAdapter(
 
 // Initialize the widget
 Appmorph.init({
-  endpoint: 'https://api.appmorph.example.com',
+  endpoint: 'http://localhost:3002',  // API server
   auth,
   position: 'bottom-right',
   theme: 'auto',
   buttonLabel: 'Customize',
 });
 ```
+
+## Features
+
+### Real-time Progress Streaming
+
+When a task is submitted, the widget shows real-time output from the AI agent as it modifies your code.
+
+### Open Stage
+
+After a task completes, click "Open Stage" to view the modified version:
+- Sets the `appmorph_session` cookie with your session ID
+- Opens the deploy server URL in a new tab
+- The deploy server routes to your modified variant based on the cookie
+
+### Revert to Default
+
+When viewing a modified version (cookie exists), the widget shows a "Revert" button:
+- Deletes the `appmorph_session` cookie
+- Refreshes the page to load the default version
+
+This allows seamless switching between the original and modified versions.
 
 ## Bundle Formats
 
@@ -241,6 +262,31 @@ The widget uses CSS custom properties scoped to `[data-appmorph]`. You can overr
   --appmorph-primary: #6366f1;
   --appmorph-primary-hover: #818cf8;
 }
+```
+
+## Session Management
+
+The SDK uses cookies for session management:
+
+| Cookie | Purpose |
+|--------|---------|
+| `appmorph_session` | Stores the current session ID for modified versions |
+
+### How Sessions Work
+
+1. **Submit a task** → Task ID becomes the session ID
+2. **Click "Open Stage"** → Cookie is set with session ID
+3. **Deploy server reads cookie** → Routes to `./deploy/<session_id>/`
+4. **Click "Revert"** → Cookie is deleted, page refreshes to default
+
+### Manual Cookie Management
+
+```typescript
+// Check if viewing a modified version
+const hasSession = document.cookie.includes('appmorph_session=');
+
+// Clear session manually
+document.cookie = 'appmorph_session=; path=/; max-age=0';
 ```
 
 ## TypeScript
