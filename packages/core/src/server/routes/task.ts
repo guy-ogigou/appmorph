@@ -10,10 +10,12 @@ import {
   AgentProgress,
   AgentResult,
   PersistedTaskEntry,
+  SanitizedSummary,
 } from '@appmorph/shared';
 import { getTaskExecutor } from '../../task/executor.js';
 import { getTaskPersistence } from '../../persistence/index.js';
 import { getAppmorphProjectConfig } from '../../config/index.js';
+import { initMessageSanitizer, type MessageSanitizer } from '../../services/index.js';
 
 // In-memory task store
 const tasks = new Map<string, Task>();
@@ -24,24 +26,52 @@ const taskConnections = new Map<string, Set<(event: string, data: unknown) => vo
 export async function registerTaskRoutes(fastify: FastifyInstance): Promise<void> {
   const executor = getTaskExecutor();
 
-  // Listen for executor events and broadcast to connected clients
-  executor.on('progress', (taskId: string, progress: AgentProgress) => {
-    const connections = taskConnections.get(taskId);
+  // Initialize message sanitizer with callback to broadcast summaries
+  const sanitizer: MessageSanitizer = initMessageSanitizer((summary: SanitizedSummary) => {
+    const connections = taskConnections.get(summary.taskId);
     if (connections) {
       for (const sendEvent of connections) {
-        sendEvent(SSE_EVENTS.PROGRESS, progress);
+        sendEvent(SSE_EVENTS.SANITIZED_SUMMARY, summary);
       }
     }
+  });
 
+  const sanitizerEnabled = sanitizer.isEnabled();
+  if (sanitizerEnabled) {
+    console.log('[Task] Message sanitizer enabled (OPENAI_API_KEY is set)');
+  } else {
+    console.log('[Task] Message sanitizer disabled (OPENAI_API_KEY not set)');
+  }
+
+  // Listen for executor events and broadcast to connected clients
+  executor.on('progress', (taskId: string, progress: AgentProgress) => {
     // Update task status
     const task = tasks.get(taskId);
     if (task) {
       task.status = 'running';
       task.updatedAt = Date.now();
     }
+
+    if (sanitizerEnabled) {
+      // Feed to sanitizer - it will batch and send sanitized summaries
+      sanitizer.addMessage(taskId, progress);
+    } else {
+      // No sanitizer - send raw progress as before
+      const connections = taskConnections.get(taskId);
+      if (connections) {
+        for (const sendEvent of connections) {
+          sendEvent(SSE_EVENTS.PROGRESS, progress);
+        }
+      }
+    }
   });
 
   executor.on('complete', (taskId: string, result: AgentResult) => {
+    // Notify sanitizer to flush remaining messages
+    if (sanitizerEnabled) {
+      sanitizer.completeTask(taskId);
+    }
+
     const connections = taskConnections.get(taskId);
     if (connections) {
       for (const sendEvent of connections) {
@@ -61,6 +91,11 @@ export async function registerTaskRoutes(fastify: FastifyInstance): Promise<void
   });
 
   executor.on('error', (taskId: string, error: Error) => {
+    // Notify sanitizer to abort (don't flush)
+    if (sanitizerEnabled) {
+      sanitizer.abortTask(taskId);
+    }
+
     const connections = taskConnections.get(taskId);
     if (connections) {
       for (const sendEvent of connections) {

@@ -41,6 +41,13 @@ export interface AgentProgress {
   timestamp: number;
 }
 
+export interface SanitizedSummary {
+  taskId: string;
+  summary: string;
+  messageCount: number;
+  timestamp: number;
+}
+
 export interface TestResult {
   name: string;
   passed: boolean;

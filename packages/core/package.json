@@ -1,6 +1,6 @@
 {
   "name": "@appmorph/core",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Appmorph backend service",
   "type": "module",
   "main": "./dist/index.js",
@@ -28,6 +28,7 @@
     "@appmorph/shared": "workspace:*",
     "@fastify/cors": "^9.0.1",
     "cookie": "^0.6.0",
+    "dotenv": "^16.4.5",
     "fastify": "^4.26.0",
     "simple-git": "^3.22.0",
     "uuid": "^9.0.1"
@@ -39,5 +40,8 @@
     "tsx": "^4.7.0",
     "typescript": "^5.3.3",
     "vitest": "^2.0.0"
+  },
+  "peerDependencies": {
+    "@types/node": "^20"
   }
 }

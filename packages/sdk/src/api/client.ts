@@ -10,10 +10,12 @@ import {
   SSE_EVENTS,
   AgentProgress,
   AgentResult,
+  SanitizedSummary,
 } from '@appmorph/shared';
 
 export interface StreamCallbacks {
   onProgress?: (progress: AgentProgress) => void;
+  onSanitizedSummary?: (summary: SanitizedSummary) => void;
   onComplete?: (result: AgentResult) => void;
   onError?: (error: Error) => void;
 }
@@ -102,6 +104,15 @@ export class ApiClient {
         callbacks.onProgress?.(progress);
       } catch (e) {
         console.error('Failed to parse progress event:', e);
+      }
+    });
+
+    eventSource.addEventListener(SSE_EVENTS.SANITIZED_SUMMARY, (event: MessageEvent) => {
+      try {
+        const summary: SanitizedSummary = JSON.parse(event.data);
+        callbacks.onSanitizedSummary?.(summary);
+      } catch (e) {
+        console.error('Failed to parse sanitized_summary event:', e);
       }
     });
 

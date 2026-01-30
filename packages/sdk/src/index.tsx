@@ -327,6 +327,11 @@ function handleSubmit(prompt: string): void {
             }
           }
         },
+        onSanitizedSummary: (summary) => {
+          // Display sanitized summary from OpenAI
+          consoleOutput = [...consoleOutput, summary.summary];
+          renderWidget();
+        },
         onComplete: (result) => {
           console.log('Complete:', result);
           isRunning = false;

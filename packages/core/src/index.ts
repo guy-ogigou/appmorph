@@ -1,3 +1,8 @@
+import { config as dotenvConfig } from 'dotenv';
+
+// Load .env file before other imports that may read env vars
+dotenvConfig();
+
 import { createServer } from './server/app.js';
 import { getConfig, loadAppmorphProjectConfig } from './config/index.js';
 import { initRepoManager } from './repo/index.js';

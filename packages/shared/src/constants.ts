@@ -22,4 +22,5 @@ export const SSE_EVENTS = {
   PROGRESS: 'progress',
   COMPLETE: 'complete',
   ERROR: 'error',
+  SANITIZED_SUMMARY: 'sanitized_summary',
 } as const;
