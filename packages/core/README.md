@@ -5,7 +5,11 @@ Backend service for Appmorph. Handles task orchestration, AI agent execution, st
 ## Installation
 
 ```bash
+npm install @appmorph/core
+# or
 pnpm add @appmorph/core
+# or
+yarn add @appmorph/core
 ```
 
 ## Quick Start

@@ -5,7 +5,11 @@ Shared TypeScript types and constants for the Appmorph platform. This package is
 ## Installation
 
 ```bash
+npm install @appmorph/shared
+# or
 pnpm add @appmorph/shared
+# or
+yarn add @appmorph/shared
 ```
 
 ## Usage

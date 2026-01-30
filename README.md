@@ -28,15 +28,39 @@ Appmorph consists of two main components:
                         └─────────────────┘
 ```
 
+## Installation
+
+Install the packages from npm:
+
+```bash
+# SDK (for your frontend app)
+npm install @appmorph/sdk
+
+# Core (for self-hosted backend)
+npm install @appmorph/core
+
+# Shared types (optional, for TypeScript projects)
+npm install @appmorph/shared
+```
+
+Or with other package managers:
+
+```bash
+# pnpm
+pnpm add @appmorph/sdk @appmorph/core
+
+# yarn
+yarn add @appmorph/sdk @appmorph/core
+```
+
 ## Quick Start
 
 ### Prerequisites
 
 - Node.js >= 18
-- pnpm >= 8
-- Claude CLI installed and authenticated
+- Claude CLI installed and authenticated (for self-hosted backend)
 
-### Installation
+### From Source (Development)
 
 ```bash
 # Clone the repository
