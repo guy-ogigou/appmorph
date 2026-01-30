@@ -9,8 +9,11 @@ import {
   SSE_EVENTS,
   AgentProgress,
   AgentResult,
+  PersistedTaskEntry,
 } from '@appmorph/shared';
 import { getTaskExecutor } from '../../task/executor.js';
+import { getTaskPersistence } from '../../persistence/index.js';
+import { getAppmorphProjectConfig } from '../../config/index.js';
 
 // In-memory task store
 const tasks = new Map<string, Task>();
@@ -83,6 +86,7 @@ export async function registerTaskRoutes(fastify: FastifyInstance): Promise<void
 
       // Extract user context from auth header
       const userId = (request.headers['x-user-id'] as string) || 'anonymous';
+      const appmorphUserId = (request.headers['x-appmorph-user-id'] as string) || userId;
 
       const taskId = uuidv4();
       const branch = groupId
@@ -101,6 +105,19 @@ export async function registerTaskRoutes(fastify: FastifyInstance): Promise<void
       };
 
       tasks.set(taskId, task);
+
+      // Persist task entry to JSON file
+      const projectConfig = getAppmorphProjectConfig();
+      const now = Date.now();
+      const persistedEntry: PersistedTaskEntry = {
+        source_base: projectConfig.source_location,
+        appmorph_user_id: appmorphUserId,
+        prompt,
+        session_id: taskId,
+        created_at: now,
+        created_date: new Date(now).toISOString(),
+      };
+      getTaskPersistence().addTaskEntry(persistedEntry);
 
       // Start executing the task in the background
       setImmediate(() => {

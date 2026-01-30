@@ -77,6 +77,8 @@ src/
 │   └── proxy-server.ts   # Cookie-based reverse proxy
 ├── task/
 │   └── executor.ts       # TaskExecutor (orchestrates staging → agent → build)
+├── persistence/
+│   └── index.ts          # TaskPersistence (JSON file storage for tasks)
 ├── plugins/
 │   ├── types.ts          # Plugin interface
 │   ├── loader.ts         # Plugin loading
@@ -87,7 +89,7 @@ src/
 ### Task Execution Flow
 
 ```
-1. Task Created
+1. Task Created (persisted to JSON)
       ↓
 2. Stage Source (copy to ./stage/<sessionId>)
       ↓
@@ -97,6 +99,45 @@ src/
       ↓
 5. Return deployUrl to client
 ```
+
+## Persistence
+
+Tasks are automatically persisted to a JSON file (`appmorph_tasks.json`) in the project root.
+
+### Persisted Data
+
+Each task entry contains:
+
+| Field | Description |
+|-------|-------------|
+| `source_base` | Path to the source code from `appmorph.json` |
+| `appmorph_user_id` | User identifier from the SDK (cookie-based) |
+| `prompt` | The user's modification request |
+| `session_id` | Unique task/session identifier |
+| `created_at` | Timestamp when the task was created (ms since epoch) |
+| `created_date` | ISO 8601 formatted date string |
+
+### File Format
+
+```json
+{
+  "tasks": [
+    {
+      "source_base": "/path/to/source",
+      "appmorph_user_id": "abc123-uuid",
+      "prompt": "Add a dark mode toggle",
+      "session_id": "task-uuid-here",
+      "created_at": 1706640000000,
+      "created_date": "2024-01-30T12:00:00.000Z"
+    }
+  ]
+}
+```
+
+This persistence layer enables:
+- Tracking user activity across sessions
+- Future support for chaining prompt requests (using previous `session_id` as the new `source_base`)
+- Analytics and audit logging
 
 ## API Endpoints
 
@@ -120,6 +161,7 @@ Response:
 POST /api/task
 Content-Type: application/json
 X-User-Id: user-123
+X-Appmorph-User-Id: persistent-user-uuid
 
 {
   "prompt": "Add a dark mode toggle"
@@ -135,10 +177,13 @@ Response:
 ```
 
 This endpoint:
-1. Creates a staged copy of the source
-2. Runs the AI agent on the staged copy
-3. Builds the modified app
-4. Returns the task ID and deploy URL
+1. Persists the task entry to `appmorph_tasks.json`
+2. Creates a staged copy of the source
+3. Runs the AI agent on the staged copy
+4. Builds the modified app
+5. Returns the task ID and deploy URL
+
+The `X-Appmorph-User-Id` header is automatically sent by the SDK and is used for persistence tracking.
 
 ### Get Task Status
 

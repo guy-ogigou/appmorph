@@ -28,6 +28,9 @@ import {
   DeployInfo,
   BuildResult,
 
+  // Persistence Types
+  PersistedTaskEntry,
+
   // Constants
   BRANCH_PREFIX,
   API_ROUTES,
@@ -252,6 +255,8 @@ interface AppmorphInitOptions {
   position?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
   theme?: 'light' | 'dark' | 'auto';
   buttonLabel?: string;
+  // Optional user ID. If not provided, a random UUID is generated and stored in cookie
+  user_id?: string;
 }
 
 interface AppmorphSDK {
@@ -262,6 +267,19 @@ interface AppmorphSDK {
   destroy(): void;
   submitPrompt(prompt: string): Promise<CreateTaskResponse>;
   getTaskStatus(taskId: string): Promise<TaskStatusResponse>;
+}
+```
+
+### Persistence
+
+```typescript
+interface PersistedTaskEntry {
+  source_base: string;        // Path to source code
+  appmorph_user_id: string;   // User identifier from SDK cookie
+  prompt: string;             // User's modification request
+  session_id: string;         // Unique task/session ID
+  created_at: number;         // Timestamp (ms since epoch)
+  created_date: string;       // ISO 8601 formatted date string
 }
 ```
 

@@ -2,9 +2,11 @@ import { render } from 'preact';
 import { AppmorphInitOptions, AppmorphSDK, CreateTaskResponse, TaskStatusResponse } from '@appmorph/shared';
 import { Widget } from './widget/Widget.js';
 import { ApiClient } from './api/client.js';
+import { getOrCreateAppmorphUserId } from './utils/cookie.js';
 
 let containerEl: HTMLElement | null = null;
 let apiClient: ApiClient | null = null;
+let appmorphUserId: string | null = null;
 let widgetIsOpen = false;
 let consoleOutput: string[] = [];
 let isRunning = false;
@@ -58,8 +60,11 @@ function init(options: AppmorphInitOptions): void {
   // Store options for re-rendering
   currentOptions = options;
 
-  // Create API client
-  apiClient = new ApiClient(options.endpoint, options.auth);
+  // Get or create appmorph_user_id (from provided user_id or cookie)
+  appmorphUserId = getOrCreateAppmorphUserId(options.user_id);
+
+  // Create API client with appmorph user ID
+  apiClient = new ApiClient(options.endpoint, options.auth, appmorphUserId);
 
   // Create container element
   containerEl = document.createElement('div');
@@ -100,6 +105,7 @@ function destroy(): void {
     containerEl = null;
   }
   apiClient = null;
+  appmorphUserId = null;
   widgetIsOpen = false;
   consoleOutput = [];
   isRunning = false;

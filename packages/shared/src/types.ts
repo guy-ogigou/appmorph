@@ -271,6 +271,21 @@ export interface AppmorphInitOptions {
   position?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
   theme?: 'light' | 'dark' | 'auto';
   buttonLabel?: string;
+  /** Optional user ID. If not provided, a random ID will be generated and stored in appmorph_user_id cookie */
+  user_id?: string;
+}
+
+// ============================================
+// Persistence Types
+// ============================================
+
+export interface PersistedTaskEntry {
+  source_base: string;
+  appmorph_user_id: string;
+  prompt: string;
+  session_id: string;
+  created_at: number;
+  created_date: string;
 }
 
 export interface AppmorphSDK {

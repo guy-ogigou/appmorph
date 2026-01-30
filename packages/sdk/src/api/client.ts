@@ -21,10 +21,12 @@ export interface StreamCallbacks {
 export class ApiClient {
   private endpoint: string;
   private auth: AuthAdapter;
+  private appmorphUserId: string;
 
-  constructor(endpoint: string, auth: AuthAdapter) {
+  constructor(endpoint: string, auth: AuthAdapter, appmorphUserId: string) {
     this.endpoint = endpoint.replace(/\/$/, ''); // Remove trailing slash
     this.auth = auth;
+    this.appmorphUserId = appmorphUserId;
   }
 
   /**
@@ -39,6 +41,7 @@ export class ApiClient {
       Authorization: `Bearer ${token}`,
       'X-User-Id': userContext.userId,
       'X-Group-Ids': userContext.groupIds.join(','),
+      'X-Appmorph-User-Id': this.appmorphUserId,
       ...(userContext.tenantId && { 'X-Tenant-Id': userContext.tenantId }),
     };
   }

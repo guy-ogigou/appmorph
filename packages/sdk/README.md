@@ -105,6 +105,10 @@ interface AppmorphInitOptions {
 
   // Button label (default: icon only)
   buttonLabel?: string;
+
+  // Optional: User ID for persistence tracking
+  // If not provided, a random UUID is generated and stored in appmorph_user_id cookie
+  user_id?: string;
 }
 ```
 
@@ -264,12 +268,41 @@ The widget uses CSS custom properties scoped to `[data-appmorph]`. You can overr
 }
 ```
 
+## User Identification
+
+The SDK automatically manages user identification for persistence tracking.
+
+### How It Works
+
+1. **With `user_id` option**: If you provide a `user_id` in the init options, it will be used and stored in the `appmorph_user_id` cookie.
+
+2. **Without `user_id` option**: A random UUID is generated and stored in the `appmorph_user_id` cookie. This ID persists across sessions.
+
+```typescript
+// Explicit user ID
+Appmorph.init({
+  endpoint: 'http://localhost:3002',
+  auth,
+  user_id: 'my-user-123'  // Will be stored in cookie
+});
+
+// Auto-generated user ID
+Appmorph.init({
+  endpoint: 'http://localhost:3002',
+  auth
+  // appmorph_user_id cookie will be created automatically with a UUID
+});
+```
+
+The `appmorph_user_id` is sent with every API request via the `X-Appmorph-User-Id` header and is used by the backend for task persistence.
+
 ## Session Management
 
 The SDK uses cookies for session management:
 
 | Cookie | Purpose |
 |--------|---------|
+| `appmorph_user_id` | Persistent user identifier for task tracking |
 | `appmorph_session` | Stores the current session ID for modified versions |
 
 ### How Sessions Work
