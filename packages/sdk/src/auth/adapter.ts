@@ -5,8 +5,8 @@ import { AuthAdapter, UserContext } from '@appmorph/shared';
  * Useful for testing or simple integrations.
  */
 export function createStaticAuthAdapter(
-  userContext: UserContext,
-  token: string
+  userContext: UserContext = { userId: 'anonymous', groupIds: [] },
+  token: string = ''
 ): AuthAdapter {
   return {
     getUserContext: async () => userContext,

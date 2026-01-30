@@ -17,21 +17,10 @@ yarn add @appmorph/sdk
 ```typescript
 import Appmorph, { createStaticAuthAdapter } from '@appmorph/sdk';
 
-// Create an auth adapter
-const auth = createStaticAuthAdapter(
-  {
-    userId: 'user-123',
-    groupIds: ['team-a', 'team-b'],
-    tenantId: 'acme-corp',
-    roles: ['editor'],
-  },
-  'your-jwt-token'
-);
-
 // Initialize the widget
 Appmorph.init({
   endpoint: 'http://localhost:3002',  // API server
-  auth,
+  auth: createStaticAuthAdapter(),
   position: 'bottom-right',
   theme: 'auto',
   buttonLabel: 'Customize',
@@ -170,11 +159,15 @@ The SDK requires an auth adapter to provide user context and authentication toke
 
 ### Static Adapter
 
-For simple use cases with fixed credentials:
+For simple use cases. Can be called with no arguments for anonymous access:
 
 ```typescript
 import { createStaticAuthAdapter } from '@appmorph/sdk';
 
+// Simple anonymous usage
+const auth = createStaticAuthAdapter();
+
+// Or with custom user context and token
 const auth = createStaticAuthAdapter(
   { userId: 'user-123', groupIds: ['team-a'] },
   'static-token'
@@ -378,14 +371,9 @@ import { onMounted, onUnmounted } from 'vue';
 import Appmorph, { createStaticAuthAdapter } from '@appmorph/sdk';
 
 onMounted(() => {
-  const auth = createStaticAuthAdapter(
-    { userId: 'user-123', groupIds: [] },
-    'token'
-  );
-
   Appmorph.init({
     endpoint: import.meta.env.VITE_APPMORPH_URL,
-    auth,
+    auth: createStaticAuthAdapter(),
   });
 });
 

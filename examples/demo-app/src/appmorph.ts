@@ -21,18 +21,7 @@ export function initAppmorph() {
   console.log("initAppmorph called");
 
   try {
-    // Create a simple auth adapter for demo purposes
-    const authAdapter = createStaticAuthAdapter(
-      {
-        userId: "demo-user",
-        groupIds: ["demo-group"],
-        tenantId: "demo-tenant",
-        roles: ["user"],
-      },
-      "demo-token",
-    );
-
-    console.log("Auth adapter created:", authAdapter);
+    const authAdapter = createStaticAuthAdapter();
 
     // Initialize the SDK
     const endpoint = getApiEndpoint();

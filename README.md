@@ -169,16 +169,10 @@ The `<dist>` placeholder in `build_command` is replaced at runtime:
 ```typescript
 import Appmorph, { createStaticAuthAdapter } from '@appmorph/sdk';
 
-// Create an auth adapter
-const auth = createStaticAuthAdapter(
-  { userId: 'user-123', groupIds: ['team-a'] },
-  'your-auth-token'
-);
-
 // Initialize the widget
 Appmorph.init({
   endpoint: 'https://your-appmorph-backend.com',
-  auth,
+  auth: createStaticAuthAdapter(),
   position: 'bottom-right',
   theme: 'auto',
 });
