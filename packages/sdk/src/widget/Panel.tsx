@@ -32,6 +32,9 @@ export interface PanelProps {
   onViewVersion?: (sessionId: string) => void;
   showHistory?: boolean;
   onHideHistory?: () => void;
+  isDeploying?: boolean;
+  showReadyToast?: boolean;
+  onLoadNewVersion?: () => void;
 }
 
 export function Panel({
@@ -48,6 +51,9 @@ export function Panel({
   onViewVersion,
   showHistory = false,
   onHideHistory,
+  isDeploying = false,
+  showReadyToast = false,
+  onLoadNewVersion,
 }: PanelProps) {
   const [prompt, setPrompt] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -84,26 +90,6 @@ export function Panel({
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       handleSubmit(e);
     }
-  };
-
-  const handleOpenStage = () => {
-    if (!stageUrl) return;
-
-    // Parse session ID from URL hash (format: http://host:port/#session=<id>)
-    const url = new URL(stageUrl);
-    const hashParams = new URLSearchParams(url.hash.slice(1));
-    const sessionId = hashParams.get('session');
-
-    if (sessionId) {
-      // Set the session cookie
-      document.cookie = `${COOKIE_NAME}=${sessionId}; path=/; max-age=86400`;
-      console.log(`[Appmorph] Set session cookie: ${sessionId}`);
-      setHasSession(true);
-    }
-
-    // Open the base URL (without hash) in a new tab
-    const baseUrl = `${url.protocol}//${url.host}`;
-    window.open(baseUrl, '_blank');
   };
 
   const handleRevertToDefault = () => {
@@ -217,19 +203,46 @@ export function Panel({
                           Rollback Here
                         </button>
                       )}
+                      {entry.is_current && entry.chain_position === 0 && onRollback && (
+                        <button
+                          type="button"
+                          onClick={() => onRollback('__reset_to_original__')}
+                          style={styles.chainRollbackButton(theme)}
+                        >
+                          Reset to Original
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
             )}
           </div>
-        ) : consoleOutput.length > 0 || isRunning ? (
+        ) : showReadyToast ? (
+          // Show Toast modal when new version is ready
+          <div style={styles.toastOverlay(theme)}>
+            <div style={styles.toastModal(theme)}>
+              <div style={styles.toastIcon(theme)}>✓</div>
+              <h4 style={styles.toastTitle(theme)}>New Version Ready</h4>
+              <p style={styles.toastMessage(theme)}>
+                Your changes have been deployed successfully.
+              </p>
+              <button
+                type="button"
+                onClick={onLoadNewVersion}
+                style={styles.toastButton(theme)}
+              >
+                Load New Version
+              </button>
+            </div>
+          </div>
+        ) : consoleOutput.length > 0 || isRunning || isDeploying ? (
           // Show console output when running or when there's output
           <>
             <div style={styles.consoleContainer(theme)}>
               <div style={styles.consoleHeader(theme)}>
                 <span style={styles.consoleTitle(theme)}>
-                  {isRunning ? '● Running...' : '✓ Complete'}
+                  {isRunning ? '● Running...' : isDeploying ? '● Building & Deploying...' : '✓ Complete'}
                 </span>
               </div>
               <div ref={consoleRef} style={styles.consoleOutput(theme)}>
@@ -239,19 +252,13 @@ export function Panel({
                 {isRunning && consoleOutput.length === 0 && (
                   <span style={styles.consoleWaiting(theme)}>Waiting for output...</span>
                 )}
+                {isDeploying && (
+                  <span style={styles.consoleWaiting(theme)}>Building and deploying new version...</span>
+                )}
               </div>
             </div>
-            {!isRunning && (
+            {!isRunning && !isDeploying && (
               <div style={styles.newTaskContainer}>
-                {stageUrl && (
-                  <button
-                    type="button"
-                    onClick={handleOpenStage}
-                    style={styles.openStageButton(theme)}
-                  >
-                    Open Stage
-                  </button>
-                )}
                 {onNewTask && (
                   <button
                     type="button"

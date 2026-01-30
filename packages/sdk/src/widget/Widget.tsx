@@ -20,6 +20,9 @@ export interface WidgetProps {
   onViewVersion?: (sessionId: string) => void;
   showHistory?: boolean;
   onHideHistory?: () => void;
+  isDeploying?: boolean;
+  showReadyToast?: boolean;
+  onLoadNewVersion?: () => void;
 }
 
 export function Widget({
@@ -38,6 +41,9 @@ export function Widget({
   onViewVersion,
   showHistory = false,
   onHideHistory,
+  isDeploying = false,
+  showReadyToast = false,
+  onLoadNewVersion,
 }: WidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
@@ -117,6 +123,9 @@ export function Widget({
           onViewVersion={onViewVersion}
           showHistory={showHistory}
           onHideHistory={onHideHistory}
+          isDeploying={isDeploying}
+          showReadyToast={showReadyToast}
+          onLoadNewVersion={onLoadNewVersion}
         />
       )}
 

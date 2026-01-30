@@ -43,6 +43,42 @@ export async function registerChainRoutes(fastify: FastifyInstance): Promise<voi
       const appmorphUserId = (request.headers['x-appmorph-user-id'] as string) || 'anonymous';
       const persistence = getTaskPersistence();
 
+      // Special case: reset to original (delete all entries)
+      if (target_session_id === '__reset_to_original__') {
+        console.log(`[Chain] Resetting user ${appmorphUserId} to original state`);
+
+        const chain = persistence.getUserChain(appmorphUserId);
+        const allSessionIds = chain.map((e) => e.session_id);
+
+        // Mark all entries as rolled back
+        persistence.rollbackToPosition(appmorphUserId, -1); // -1 means all entries
+
+        // Clean up filesystem
+        try {
+          const stagingManager = getStagingManager();
+          const deployManager = getDeployManager();
+
+          for (const sessionId of allSessionIds) {
+            console.log(`[Chain] Cleaning up session ${sessionId}`);
+            stagingManager.cleanupStage(sessionId);
+            deployManager.cleanupDeploy(sessionId);
+          }
+        } catch (error) {
+          console.error(`[Chain] Filesystem cleanup error: ${error}`);
+        }
+
+        // Delete all entries from persistence
+        persistence.deleteRolledBackEntries(appmorphUserId);
+
+        console.log(`[Chain] Reset complete. Removed ${allSessionIds.length} entries`);
+
+        return {
+          success: true,
+          removed_sessions: allSessionIds,
+          current_session_id: null,
+        };
+      }
+
       // Find target entry
       const targetEntry = persistence.getTaskBySessionId(target_session_id);
       if (!targetEntry || targetEntry.appmorph_user_id !== appmorphUserId) {

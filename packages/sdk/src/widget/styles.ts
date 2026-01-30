@@ -379,4 +379,64 @@ export const styles = {
     color: 'var(--appmorph-text-muted)',
     fontSize: '14px',
   }),
+
+  // Toast modal styles
+  toastOverlay: (_theme: Theme): CSSProperties => ({
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '24px',
+    minHeight: '200px',
+  }),
+
+  toastModal: (_theme: Theme): CSSProperties => ({
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    padding: '24px',
+    borderRadius: '12px',
+    backgroundColor: 'var(--appmorph-bg-panel)',
+    border: '1px solid var(--appmorph-border)',
+    textAlign: 'center',
+  }),
+
+  toastIcon: (_theme: Theme): CSSProperties => ({
+    width: '48px',
+    height: '48px',
+    borderRadius: '50%',
+    backgroundColor: '#10b981',
+    color: '#ffffff',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '24px',
+    fontWeight: 'bold',
+    marginBottom: '16px',
+  }),
+
+  toastTitle: (_theme: Theme): CSSProperties => ({
+    margin: '0 0 8px 0',
+    fontSize: '18px',
+    fontWeight: 600,
+    color: 'var(--appmorph-text)',
+  }),
+
+  toastMessage: (_theme: Theme): CSSProperties => ({
+    margin: '0 0 20px 0',
+    fontSize: '14px',
+    color: 'var(--appmorph-text-muted)',
+    lineHeight: 1.5,
+  }),
+
+  toastButton: (_theme: Theme): CSSProperties => ({
+    padding: '10px 24px',
+    borderRadius: '6px',
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: 600,
+    backgroundColor: 'var(--appmorph-primary)',
+    color: '#ffffff',
+    transition: 'all 0.2s ease',
+  }),
 };

@@ -16,6 +16,31 @@ let currentOptions: AppmorphInitOptions | null = null;
 let currentStageUrl: string | undefined = undefined;
 let chain: ChainEntry[] = [];
 let showHistory = false;
+let isDeploying = false;
+let showReadyToast = false;
+
+/**
+ * Check if an agent message should be filtered out (file read/write operations).
+ */
+function shouldFilterMessage(content: string): boolean {
+  const lowerContent = content.toLowerCase();
+  // Filter out file read messages
+  if (lowerContent.includes('reading file') ||
+      lowerContent.includes('read file') ||
+      lowerContent.includes('reading:') ||
+      lowerContent.includes('⏺ read')) {
+    return true;
+  }
+  // Filter out file write messages
+  if (lowerContent.includes('writing to') ||
+      lowerContent.includes('wrote file') ||
+      lowerContent.includes('writing file') ||
+      lowerContent.includes('⏺ write') ||
+      lowerContent.includes('⏺ edit')) {
+    return true;
+  }
+  return false;
+}
 
 /**
  * Clear console output and return to prompt form.
@@ -25,6 +50,8 @@ function handleNewTask(): void {
   isRunning = false;
   currentStageUrl = undefined;
   showHistory = false;
+  isDeploying = false;
+  showReadyToast = false;
   renderWidget();
 }
 
@@ -77,8 +104,16 @@ async function handleRollback(sessionId: string): Promise<void> {
     const response = await apiClient.rollbackTo(sessionId);
     if (response.success) {
       console.log(`[Appmorph] Rolled back to ${sessionId}. Removed: ${response.removed_sessions.join(', ')}`);
-      // Update cookie to the new current session
-      document.cookie = `${COOKIE_NAME}=${sessionId}; path=/; max-age=86400`;
+
+      if (response.current_session_id) {
+        // Update cookie to the new current session
+        document.cookie = `${COOKIE_NAME}=${response.current_session_id}; path=/; max-age=86400`;
+      } else {
+        // Reset to original - delete the session cookie
+        document.cookie = `${COOKIE_NAME}=; path=/; max-age=0`;
+        console.log('[Appmorph] Reset to original state');
+      }
+
       // Refresh chain and page
       await fetchChain();
       window.location.reload();
@@ -95,6 +130,26 @@ async function handleRollback(sessionId: string): Promise<void> {
 /**
  * Re-render the widget with current state.
  */
+function handleLoadNewVersion(): void {
+  if (!currentStageUrl) return;
+
+  // Parse session ID from URL hash (format: http://host:port/#session=<id>)
+  const url = new URL(currentStageUrl);
+  const hashParams = new URLSearchParams(url.hash.slice(1));
+  const sessionId = hashParams.get('session');
+
+  if (sessionId) {
+    // Set the session cookie
+    document.cookie = `${COOKIE_NAME}=${sessionId}; path=/; max-age=86400`;
+    console.log(`[Appmorph] Loading new version with session: ${sessionId}`);
+  }
+
+  // Reset state and reload
+  showReadyToast = false;
+  isDeploying = false;
+  window.location.reload();
+}
+
 function renderWidget(): void {
   if (!containerEl || !currentOptions) return;
 
@@ -115,6 +170,9 @@ function renderWidget(): void {
       onViewVersion={handleViewVersion}
       showHistory={showHistory}
       onHideHistory={handleHideHistory}
+      isDeploying={isDeploying}
+      showReadyToast={showReadyToast}
+      onLoadNewVersion={handleLoadNewVersion}
     />,
     containerEl
   );
@@ -191,6 +249,8 @@ function destroy(): void {
   currentStageUrl = undefined;
   chain = [];
   showHistory = false;
+  isDeploying = false;
+  showReadyToast = false;
 }
 
 /**
@@ -220,6 +280,8 @@ function handleSubmit(prompt: string): void {
   // Clear previous output and set running state
   consoleOutput = [];
   isRunning = true;
+  isDeploying = false;
+  showReadyToast = false;
   renderWidget();
 
   apiClient.createTask(prompt)
@@ -228,32 +290,49 @@ function handleSubmit(prompt: string): void {
       // Stream progress via SSE
       apiClient!.streamTaskProgress(response.taskId, {
         onProgress: (progress) => {
-          // Add stdout content to console output
+          // Add stdout content to console output (filter out file read/write messages)
           if (progress.type === 'stdout' || progress.type === 'log') {
-            consoleOutput = [...consoleOutput, progress.content];
-            renderWidget();
+            if (!shouldFilterMessage(progress.content)) {
+              consoleOutput = [...consoleOutput, progress.content];
+              renderWidget();
+            }
           }
         },
         onComplete: (result) => {
           console.log('Complete:', result);
           isRunning = false;
-          // Add completion message
-          consoleOutput = [...consoleOutput, `\n--- Task ${result.success ? 'completed successfully' : 'failed'} ---`];
-          if (result.filesChanged.length > 0) {
-            consoleOutput = [...consoleOutput, `Files changed: ${result.filesChanged.join(', ')}`];
+
+          if (result.success) {
+            // Show deploying state
+            isDeploying = true;
+            renderWidget();
+
+            // Extract deploy URL if available
+            if (result.deployInfo?.deployUrl) {
+              currentStageUrl = result.deployInfo.deployUrl;
+              // Deployment complete - show toast
+              isDeploying = false;
+              showReadyToast = true;
+              renderWidget();
+              // Refresh chain after task completes
+              fetchChain();
+            } else {
+              // No deploy info - just show completion
+              isDeploying = false;
+              consoleOutput = [...consoleOutput, `\n--- Task completed ---`];
+              renderWidget();
+              fetchChain();
+            }
+          } else {
+            // Task failed
+            consoleOutput = [...consoleOutput, `\n--- Task failed ---`];
+            renderWidget();
           }
-          // Extract deploy URL if available
-          if (result.deployInfo?.deployUrl) {
-            currentStageUrl = result.deployInfo.deployUrl;
-            consoleOutput = [...consoleOutput, `Deploy URL: ${result.deployInfo.deployUrl}`];
-          }
-          renderWidget();
-          // Refresh chain after task completes
-          fetchChain();
         },
         onError: (error) => {
           console.error('Error:', error);
           isRunning = false;
+          isDeploying = false;
           consoleOutput = [...consoleOutput, `\n--- Error: ${error.message} ---`];
           renderWidget();
         },
@@ -262,6 +341,7 @@ function handleSubmit(prompt: string): void {
     .catch((error) => {
       console.error('Failed to create task:', error);
       isRunning = false;
+      isDeploying = false;
       consoleOutput = [...consoleOutput, `Failed to create task: ${error.message}`];
       renderWidget();
     });

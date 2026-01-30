@@ -143,6 +143,7 @@ export class TaskPersistence {
 
   /**
    * Mark tasks as rolled back (all entries AFTER the target position).
+   * Use targetPosition = -1 to mark ALL entries as rolled back.
    * Returns the entries that were marked as rolled back.
    */
   rollbackToPosition(appmorphUserId: string, targetPosition: number): PersistedTaskEntry[] {
