@@ -2,6 +2,7 @@ import { spawn, ChildProcess } from 'child_process';
 import { AgentRunContext, AgentProgress, AgentResult } from '@appmorph/shared';
 import { BaseAgent } from './interface.js';
 import { getConfig } from '../config/index.js';
+import { getMockAgentFactory } from './mock-agent.js';
 
 /**
  * ClaudeCliAgent - Executes the Claude CLI to process prompts.
@@ -443,7 +444,13 @@ export class StreamingClaudeCliAgent extends BaseAgent {
 
 /**
  * Factory function to create the default agent.
+ * If a mock agent factory is set (for testing), uses that instead.
  */
-export function createDefaultAgent(): StreamingClaudeCliAgent {
+export function createDefaultAgent(): BaseAgent {
+  // Check if a mock agent factory is set (for testing)
+  const mockFactory = getMockAgentFactory();
+  if (mockFactory) {
+    return mockFactory();
+  }
   return new StreamingClaudeCliAgent();
 }

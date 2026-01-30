@@ -192,3 +192,18 @@ export function getTaskPersistence(): TaskPersistence {
   }
   return persistenceInstance;
 }
+
+/**
+ * Initialize persistence with a custom file path (for testing).
+ */
+export function initTaskPersistence(filePath: string): TaskPersistence {
+  persistenceInstance = new TaskPersistence(filePath);
+  return persistenceInstance;
+}
+
+/**
+ * Reset the persistence singleton (for testing).
+ */
+export function resetTaskPersistence(): void {
+  persistenceInstance = null;
+}

@@ -257,3 +257,10 @@ export function getStagingManager(): FileSystemStagingManager {
   }
   return stagingManager;
 }
+
+/**
+ * Reset the staging manager singleton (for testing).
+ */
+export function resetStagingManager(): void {
+  stagingManager = null;
+}

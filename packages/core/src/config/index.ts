@@ -120,6 +120,20 @@ export function getConfig(): AppConfig {
   return configInstance;
 }
 
+/**
+ * Set a custom config (for testing).
+ */
+export function setConfig(config: AppConfig): void {
+  configInstance = config;
+}
+
+/**
+ * Reset the config singleton (for testing).
+ */
+export function resetConfig(): void {
+  configInstance = null;
+}
+
 // ============================================
 // Project Config (appmorph.json)
 // ============================================
@@ -239,4 +253,18 @@ export function getAppmorphProjectConfig(): AppmorphProjectConfig {
     projectConfigInstance = loadAppmorphProjectConfig();
   }
   return projectConfigInstance;
+}
+
+/**
+ * Set a custom project config (for testing).
+ */
+export function setAppmorphProjectConfig(config: AppmorphProjectConfig): void {
+  projectConfigInstance = config;
+}
+
+/**
+ * Reset the project config singleton (for testing).
+ */
+export function resetAppmorphProjectConfig(): void {
+  projectConfigInstance = null;
 }

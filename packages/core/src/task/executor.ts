@@ -187,3 +187,13 @@ export function getTaskExecutor(): TaskExecutor {
   }
   return executorInstance;
 }
+
+/**
+ * Reset the task executor singleton (for testing).
+ */
+export function resetTaskExecutor(): void {
+  if (executorInstance) {
+    executorInstance.removeAllListeners();
+  }
+  executorInstance = null;
+}

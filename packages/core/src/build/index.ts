@@ -104,3 +104,10 @@ export function getBuildManager(): FileSystemBuildManager {
   }
   return buildManager;
 }
+
+/**
+ * Reset the build manager singleton (for testing).
+ */
+export function resetBuildManager(): void {
+  buildManager = null;
+}
