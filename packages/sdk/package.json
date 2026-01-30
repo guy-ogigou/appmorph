@@ -1,6 +1,6 @@
 {
   "name": "@appmorph/sdk",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Appmorph SDK - Embeddable widget for AI-powered app customization",
   "type": "module",
   "main": "./dist/appmorph.umd.cjs",
