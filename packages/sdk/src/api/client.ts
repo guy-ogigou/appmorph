@@ -3,6 +3,9 @@ import {
   CreateTaskRequest,
   CreateTaskResponse,
   TaskStatusResponse,
+  ChainResponse,
+  RollbackRequest,
+  RollbackResponse,
   API_ROUTES,
   SSE_EVENTS,
   AgentProgress,
@@ -129,5 +132,43 @@ export class ApiClient {
 
     // Return cleanup function
     return () => eventSource.close();
+  }
+
+  /**
+   * Get the user's chain of changes.
+   */
+  async getChain(): Promise<ChainResponse> {
+    const headers = await this.getHeaders();
+
+    const response = await fetch(`${this.endpoint}${API_ROUTES.CHAIN}`, {
+      method: 'GET',
+      headers,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get chain: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Rollback to a specific version in the chain.
+   */
+  async rollbackTo(targetSessionId: string): Promise<RollbackResponse> {
+    const headers = await this.getHeaders();
+    const body: RollbackRequest = { target_session_id: targetSessionId };
+
+    const response = await fetch(`${this.endpoint}${API_ROUTES.CHAIN_ROLLBACK}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to rollback: ${response.statusText}`);
+    }
+
+    return response.json();
   }
 }

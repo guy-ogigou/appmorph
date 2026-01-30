@@ -44,3 +44,4 @@ repos/
 .claude/
 packages/core/stage
 deploy/
+appmorph_tasks.json

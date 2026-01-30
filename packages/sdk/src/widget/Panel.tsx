@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'preact/hooks';
+import { ChainEntry } from '@appmorph/shared';
 import { styles } from './styles.js';
 
 const COOKIE_NAME = 'appmorph_session';
@@ -25,9 +26,29 @@ export interface PanelProps {
   consoleOutput?: string[];
   isRunning?: boolean;
   stageUrl?: string;
+  chain?: ChainEntry[];
+  onShowHistory?: () => void;
+  onRollback?: (sessionId: string) => void;
+  onViewVersion?: (sessionId: string) => void;
+  showHistory?: boolean;
+  onHideHistory?: () => void;
 }
 
-export function Panel({ theme, onClose, onSubmit, onNewTask, consoleOutput = [], isRunning = false, stageUrl }: PanelProps) {
+export function Panel({
+  theme,
+  onClose,
+  onSubmit,
+  onNewTask,
+  consoleOutput = [],
+  isRunning = false,
+  stageUrl,
+  chain = [],
+  onShowHistory,
+  onRollback,
+  onViewVersion,
+  showHistory = false,
+  onHideHistory,
+}: PanelProps) {
   const [prompt, setPrompt] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasSession, setHasSession] = useState(hasSessionCookie());
@@ -98,6 +119,16 @@ export function Panel({ theme, onClose, onSubmit, onNewTask, consoleOutput = [],
       <div style={styles.panelHeader(theme)}>
         <h3 style={styles.panelTitle(theme)}>Appmorph</h3>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {chain.length > 0 && onShowHistory && !showHistory && (
+            <button
+              type="button"
+              onClick={onShowHistory}
+              style={styles.historyButton(theme)}
+              title="View change history"
+            >
+              History ({chain.length})
+            </button>
+          )}
           {hasSession && (
             <button
               type="button"
@@ -130,7 +161,69 @@ export function Panel({ theme, onClose, onSubmit, onNewTask, consoleOutput = [],
       </div>
 
       <div style={styles.panelBody(theme)}>
-        {consoleOutput.length > 0 || isRunning ? (
+        {showHistory ? (
+          // Show chain history view
+          <div style={styles.chainContainer(theme)}>
+            <div style={styles.chainHeader(theme)}>
+              <span style={styles.chainTitle(theme)}>Change History</span>
+              {onHideHistory && (
+                <button
+                  type="button"
+                  onClick={onHideHistory}
+                  style={styles.chainBackButton(theme)}
+                >
+                  Back
+                </button>
+              )}
+            </div>
+            {chain.length === 0 ? (
+              <div style={styles.chainEmpty(theme)}>
+                No changes yet. Submit a task to start building your chain.
+              </div>
+            ) : (
+              <div style={styles.chainList(theme)}>
+                {chain.map((entry) => (
+                  <div key={entry.session_id} style={styles.chainEntry(theme, entry.is_current)}>
+                    <div style={styles.chainEntryHeader(theme)}>
+                      <span style={styles.chainPosition(theme)}>
+                        #{entry.chain_position + 1}
+                      </span>
+                      {entry.is_current && (
+                        <span style={styles.currentBadge(theme)}>Current</span>
+                      )}
+                    </div>
+                    <div style={styles.chainPrompt(theme)}>
+                      {entry.prompt}
+                    </div>
+                    <div style={styles.chainMeta(theme)}>
+                      {new Date(entry.created_at).toLocaleString()}
+                    </div>
+                    <div style={styles.chainActions(theme)}>
+                      {onViewVersion && (
+                        <button
+                          type="button"
+                          onClick={() => onViewVersion(entry.session_id)}
+                          style={styles.chainViewButton(theme)}
+                        >
+                          View
+                        </button>
+                      )}
+                      {!entry.is_current && onRollback && (
+                        <button
+                          type="button"
+                          onClick={() => onRollback(entry.session_id)}
+                          style={styles.chainRollbackButton(theme)}
+                        >
+                          Rollback Here
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : consoleOutput.length > 0 || isRunning ? (
           // Show console output when running or when there's output
           <>
             <div style={styles.consoleContainer(theme)}>
@@ -194,13 +287,24 @@ export function Panel({ theme, onClose, onSubmit, onNewTask, consoleOutput = [],
                 <span style={styles.hint(theme)}>
                   {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'} + Enter to submit
                 </span>
-                <button
-                  type="submit"
-                  disabled={!prompt.trim() || isSubmitting}
-                  style={styles.submitButton(theme, !prompt.trim() || isSubmitting)}
-                >
-                  {isSubmitting ? 'Submitting...' : 'Submit'}
-                </button>
+                <div style={styles.buttonGroup}>
+                  {prompt.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => setPrompt('')}
+                      style={styles.resetButton(theme)}
+                    >
+                      Reset
+                    </button>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={!prompt.trim() || isSubmitting}
+                    style={styles.submitButton(theme, !prompt.trim() || isSubmitting)}
+                  >
+                    {isSubmitting ? 'Submitting...' : 'Submit'}
+                  </button>
+                </div>
               </div>
             </form>
           </>

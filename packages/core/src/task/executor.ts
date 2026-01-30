@@ -13,8 +13,12 @@ import { getStagingManager } from '../staging/index.js';
 import { getBuildManager } from '../build/index.js';
 import { getDeployManager } from '../deploy/index.js';
 
+export interface ExecuteOptions {
+  parentSessionId?: string | null;
+}
+
 export interface TaskExecutor extends EventEmitter {
-  execute(task: Task): Promise<AgentResult>;
+  execute(task: Task, options?: ExecuteOptions): Promise<AgentResult>;
   on(event: 'progress', listener: (taskId: string, progress: AgentProgress) => void): this;
   on(event: 'complete', listener: (taskId: string, result: AgentResult) => void): this;
   on(event: 'error', listener: (taskId: string, error: Error) => void): this;
@@ -23,17 +27,21 @@ export interface TaskExecutor extends EventEmitter {
 class TaskExecutorImpl extends EventEmitter implements TaskExecutor {
   private runningTasks = new Map<string, { abortController: AbortController }>();
 
-  async execute(task: Task): Promise<AgentResult> {
+  async execute(task: Task, options?: ExecuteOptions): Promise<AgentResult> {
+    const parentSessionId = options?.parentSessionId ?? null;
     console.log(`[Executor] Starting task ${task.id}: "${task.prompt.substring(0, 50)}..."`);
+    if (parentSessionId) {
+      console.log(`[Executor] Chaining from parent session: ${parentSessionId}`);
+    }
 
     const agent = createDefaultAgent();
     let stageInfo: StageInfo | undefined;
     let deployInfo: DeployInfo | undefined;
 
-    // Step 1: Create staging directory
+    // Step 1: Create staging directory (using chained staging if parent exists)
     try {
       const stagingManager = getStagingManager();
-      stageInfo = stagingManager.createStage(task.id);
+      stageInfo = stagingManager.createChainedStage(task.id, parentSessionId);
       console.log(`[Executor] Stage created at: ${stageInfo.stagePath}`);
 
       this.emit('progress', task.id, {

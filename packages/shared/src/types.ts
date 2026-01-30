@@ -286,6 +286,40 @@ export interface PersistedTaskEntry {
   session_id: string;
   created_at: number;
   created_date: string;
+  // Chain support
+  parent_session_id: string | null;  // null = original source
+  chain_position: number;            // 0 = first change, 1 = second, etc.
+  status: 'active' | 'rolled_back';
+}
+
+// ============================================
+// Chain Types
+// ============================================
+
+export interface ChainEntry {
+  session_id: string;
+  prompt: string;
+  created_at: number;
+  created_date: string;
+  chain_position: number;
+  is_current: boolean;
+}
+
+export interface ChainResponse {
+  user_id: string;
+  chain: ChainEntry[];
+  current_session_id: string | null;
+}
+
+export interface RollbackRequest {
+  target_session_id: string;
+}
+
+export interface RollbackResponse {
+  success: boolean;
+  removed_sessions: string[];
+  current_session_id: string | null;
+  error?: string;
 }
 
 export interface AppmorphSDK {

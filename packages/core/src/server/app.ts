@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import { API_ROUTES } from '@appmorph/shared';
 import { registerTaskRoutes } from './routes/task.js';
 import { registerVersionRoutes } from './routes/version.js';
+import { registerChainRoutes } from './routes/chain.js';
 
 export async function createServer(): Promise<FastifyInstance> {
   const fastify = Fastify({
@@ -23,6 +24,7 @@ export async function createServer(): Promise<FastifyInstance> {
   // Register route modules
   await registerTaskRoutes(fastify);
   await registerVersionRoutes(fastify);
+  await registerChainRoutes(fastify);
 
   return fastify;
 }

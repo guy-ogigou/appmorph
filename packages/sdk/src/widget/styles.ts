@@ -135,6 +135,23 @@ export const styles = {
     transition: 'all 0.2s ease',
   }),
 
+  resetButton: (_theme: Theme): CSSProperties => ({
+    padding: '8px 16px',
+    borderRadius: '6px',
+    border: '1px solid var(--appmorph-border)',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: 500,
+    backgroundColor: 'transparent',
+    color: 'var(--appmorph-text-muted)',
+    transition: 'all 0.2s ease',
+  }),
+
+  buttonGroup: {
+    display: 'flex',
+    gap: '8px',
+  } as CSSProperties,
+
   // Console output styles
   consoleContainer: (_theme: Theme): CSSProperties => ({
     display: 'flex',
@@ -224,5 +241,142 @@ export const styles = {
     backgroundColor: 'transparent',
     color: 'var(--appmorph-text-muted)',
     transition: 'all 0.2s ease',
+  }),
+
+  // History button in header
+  historyButton: (_theme: Theme): CSSProperties => ({
+    padding: '4px 8px',
+    borderRadius: '4px',
+    border: '1px solid var(--appmorph-border)',
+    cursor: 'pointer',
+    fontSize: '12px',
+    fontWeight: 500,
+    backgroundColor: 'transparent',
+    color: 'var(--appmorph-text-muted)',
+    transition: 'all 0.2s ease',
+  }),
+
+  // Chain history styles
+  chainContainer: (_theme: Theme): CSSProperties => ({
+    display: 'flex',
+    flexDirection: 'column',
+    maxHeight: '350px',
+    overflow: 'hidden',
+  }),
+
+  chainHeader: (_theme: Theme): CSSProperties => ({
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: '12px',
+  }),
+
+  chainTitle: (_theme: Theme): CSSProperties => ({
+    fontSize: '14px',
+    fontWeight: 600,
+    color: 'var(--appmorph-text)',
+  }),
+
+  chainBackButton: (_theme: Theme): CSSProperties => ({
+    padding: '4px 8px',
+    borderRadius: '4px',
+    border: '1px solid var(--appmorph-border)',
+    cursor: 'pointer',
+    fontSize: '12px',
+    fontWeight: 500,
+    backgroundColor: 'transparent',
+    color: 'var(--appmorph-text-muted)',
+    transition: 'all 0.2s ease',
+  }),
+
+  chainList: (_theme: Theme): CSSProperties => ({
+    flex: 1,
+    overflowY: 'auto',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+  }),
+
+  chainEntry: (_theme: Theme, isCurrent: boolean): CSSProperties => ({
+    padding: '10px 12px',
+    borderRadius: '8px',
+    border: `1px solid ${isCurrent ? 'var(--appmorph-primary)' : 'var(--appmorph-border)'}`,
+    backgroundColor: isCurrent ? 'rgba(99, 102, 241, 0.1)' : 'var(--appmorph-bg)',
+  }),
+
+  chainEntryHeader: (_theme: Theme): CSSProperties => ({
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    marginBottom: '4px',
+  }),
+
+  chainPosition: (_theme: Theme): CSSProperties => ({
+    fontSize: '11px',
+    fontWeight: 600,
+    color: 'var(--appmorph-primary)',
+  }),
+
+  currentBadge: (_theme: Theme): CSSProperties => ({
+    fontSize: '10px',
+    fontWeight: 500,
+    padding: '2px 6px',
+    borderRadius: '4px',
+    backgroundColor: 'var(--appmorph-primary)',
+    color: '#ffffff',
+  }),
+
+  chainPrompt: (_theme: Theme): CSSProperties => ({
+    fontSize: '13px',
+    color: 'var(--appmorph-text)',
+    lineHeight: 1.4,
+    marginBottom: '4px',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    display: '-webkit-box',
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: 'vertical',
+  }),
+
+  chainMeta: (_theme: Theme): CSSProperties => ({
+    fontSize: '11px',
+    color: 'var(--appmorph-text-muted)',
+    marginBottom: '8px',
+  }),
+
+  chainActions: (_theme: Theme): CSSProperties => ({
+    display: 'flex',
+    gap: '6px',
+  }),
+
+  chainViewButton: (_theme: Theme): CSSProperties => ({
+    padding: '4px 8px',
+    borderRadius: '4px',
+    border: '1px solid var(--appmorph-primary)',
+    cursor: 'pointer',
+    fontSize: '11px',
+    fontWeight: 500,
+    backgroundColor: 'transparent',
+    color: 'var(--appmorph-primary)',
+    transition: 'all 0.2s ease',
+  }),
+
+  chainRollbackButton: (_theme: Theme): CSSProperties => ({
+    padding: '4px 8px',
+    borderRadius: '4px',
+    border: '1px solid #ef4444',
+    cursor: 'pointer',
+    fontSize: '11px',
+    fontWeight: 500,
+    backgroundColor: 'transparent',
+    color: '#ef4444',
+    transition: 'all 0.2s ease',
+  }),
+
+  chainEmpty: (_theme: Theme): CSSProperties => ({
+    textAlign: 'center',
+    padding: '24px',
+    color: 'var(--appmorph-text-muted)',
+    fontSize: '14px',
   }),
 };

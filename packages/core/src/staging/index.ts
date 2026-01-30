@@ -113,6 +113,61 @@ export class FileSystemStagingManager {
   }
 
   /**
+   * Create a staging directory for a chained task.
+   * If parentSessionId is provided, copies from that session's stage.
+   * If parent stage doesn't exist, falls back to the original source (with warning).
+   */
+  createChainedStage(sessionId: string, parentSessionId: string | null): StageInfo {
+    const stagePath = this.getStagePath(sessionId);
+
+    // Remove existing stage if it exists
+    if (existsSync(stagePath)) {
+      console.log(`[Staging] Removing existing stage: ${stagePath}`);
+      rmSync(stagePath, { recursive: true, force: true });
+    }
+
+    // Create stage directory
+    mkdirSync(stagePath, { recursive: true });
+
+    // Determine source
+    let sourceLocation: string;
+    let isFromParentStage = false;
+
+    if (parentSessionId) {
+      const parentStagePath = this.getStagePath(parentSessionId);
+      if (existsSync(parentStagePath)) {
+        sourceLocation = parentStagePath;
+        isFromParentStage = true;
+        console.log(`[Staging] Using parent stage as source: ${parentStagePath}`);
+      } else {
+        console.warn(
+          `[Staging] Parent stage ${parentSessionId} not found, falling back to original source`
+        );
+        sourceLocation = this.config.source_location;
+      }
+    } else {
+      sourceLocation = this.config.source_location;
+    }
+
+    // Copy source to stage, filtering out unwanted directories
+    console.log(`[Staging] Copying ${sourceLocation} to ${stagePath}`);
+    this.copyFiltered(sourceLocation, stagePath);
+
+    // Only resolve workspace dependencies if copying from original source
+    // (parent stage already has resolved dependencies)
+    if (!isFromParentStage) {
+      this.resolveWorkspaceDependencies(stagePath);
+    }
+
+    console.log(`[Staging] Chained stage created: ${stagePath}`);
+
+    return {
+      sessionId,
+      stagePath,
+    };
+  }
+
+  /**
    * Resolve workspace:* dependencies in package.json to file: paths.
    * This allows the staged app to install dependencies outside the monorepo context.
    */

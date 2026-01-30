@@ -106,24 +106,40 @@ export async function registerTaskRoutes(fastify: FastifyInstance): Promise<void
 
       tasks.set(taskId, task);
 
-      // Persist task entry to JSON file
+      // Persist task entry to JSON file with chain information
       const projectConfig = getAppmorphProjectConfig();
+      const persistence = getTaskPersistence();
+      const latestTask = persistence.getLatestTaskForUser(appmorphUserId);
+
+      const parentSessionId = latestTask?.session_id || null;
+      const chainPosition = latestTask ? latestTask.chain_position + 1 : 0;
+
       const now = Date.now();
       const persistedEntry: PersistedTaskEntry = {
-        source_base: projectConfig.source_location,
+        source_base: parentSessionId
+          ? `stage/${parentSessionId}` // Reference parent stage
+          : projectConfig.source_location,
         appmorph_user_id: appmorphUserId,
         prompt,
         session_id: taskId,
         created_at: now,
         created_date: new Date(now).toISOString(),
+        parent_session_id: parentSessionId,
+        chain_position: chainPosition,
+        status: 'active',
       };
-      getTaskPersistence().addTaskEntry(persistedEntry);
+      persistence.addTaskEntry(persistedEntry);
 
-      // Start executing the task in the background
+      console.log(
+        `[Task] Created task ${taskId} at chain position ${chainPosition}` +
+          (parentSessionId ? ` (parent: ${parentSessionId})` : ' (no parent)')
+      );
+
+      // Start executing the task in the background with chain info
       setImmediate(() => {
         task.status = 'running';
         task.updatedAt = Date.now();
-        executor.execute(task).catch((error) => {
+        executor.execute(task, { parentSessionId }).catch((error) => {
           console.error('Task execution error:', error);
         });
       });

@@ -14,6 +14,8 @@ export const API_ROUTES = {
   VERSION: '/api/version',
   PROMOTE: '/api/promote',
   REVERT: '/api/revert',
+  CHAIN: '/api/chain',
+  CHAIN_ROLLBACK: '/api/chain/rollback',
 } as const;
 
 export const SSE_EVENTS = {

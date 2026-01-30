@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'preact/hooks';
+import { ChainEntry } from '@appmorph/shared';
 import { Button } from './Button.js';
 import { Panel } from './Panel.js';
 import { styles } from './styles.js';
@@ -13,6 +14,12 @@ export interface WidgetProps {
   consoleOutput?: string[];
   isRunning?: boolean;
   stageUrl?: string;
+  chain?: ChainEntry[];
+  onShowHistory?: () => void;
+  onRollback?: (sessionId: string) => void;
+  onViewVersion?: (sessionId: string) => void;
+  showHistory?: boolean;
+  onHideHistory?: () => void;
 }
 
 export function Widget({
@@ -25,6 +32,12 @@ export function Widget({
   consoleOutput = [],
   isRunning = false,
   stageUrl,
+  chain = [],
+  onShowHistory,
+  onRollback,
+  onViewVersion,
+  showHistory = false,
+  onHideHistory,
 }: WidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
@@ -98,6 +111,12 @@ export function Widget({
           consoleOutput={consoleOutput}
           isRunning={isRunning}
           stageUrl={stageUrl}
+          chain={chain}
+          onShowHistory={onShowHistory}
+          onRollback={onRollback}
+          onViewVersion={onViewVersion}
+          showHistory={showHistory}
+          onHideHistory={onHideHistory}
         />
       )}
 

@@ -1,8 +1,10 @@
 import { render } from 'preact';
-import { AppmorphInitOptions, AppmorphSDK, CreateTaskResponse, TaskStatusResponse } from '@appmorph/shared';
+import { AppmorphInitOptions, AppmorphSDK, CreateTaskResponse, TaskStatusResponse, ChainEntry } from '@appmorph/shared';
 import { Widget } from './widget/Widget.js';
 import { ApiClient } from './api/client.js';
 import { getOrCreateAppmorphUserId } from './utils/cookie.js';
+
+const COOKIE_NAME = 'appmorph_session';
 
 let containerEl: HTMLElement | null = null;
 let apiClient: ApiClient | null = null;
@@ -12,6 +14,8 @@ let consoleOutput: string[] = [];
 let isRunning = false;
 let currentOptions: AppmorphInitOptions | null = null;
 let currentStageUrl: string | undefined = undefined;
+let chain: ChainEntry[] = [];
+let showHistory = false;
 
 /**
  * Clear console output and return to prompt form.
@@ -20,7 +24,72 @@ function handleNewTask(): void {
   consoleOutput = [];
   isRunning = false;
   currentStageUrl = undefined;
+  showHistory = false;
   renderWidget();
+}
+
+/**
+ * Fetch the user's chain from the backend.
+ */
+async function fetchChain(): Promise<void> {
+  if (!apiClient) return;
+  try {
+    const response = await apiClient.getChain();
+    chain = response.chain;
+    renderWidget();
+  } catch (error) {
+    console.error('[Appmorph] Failed to fetch chain:', error);
+  }
+}
+
+/**
+ * Show the chain history view.
+ */
+function handleShowHistory(): void {
+  showHistory = true;
+  fetchChain(); // Refresh chain data
+  renderWidget();
+}
+
+/**
+ * Hide the chain history view.
+ */
+function handleHideHistory(): void {
+  showHistory = false;
+  renderWidget();
+}
+
+/**
+ * View a specific version by setting the session cookie.
+ */
+function handleViewVersion(sessionId: string): void {
+  document.cookie = `${COOKIE_NAME}=${sessionId}; path=/; max-age=86400`;
+  console.log(`[Appmorph] Set session cookie: ${sessionId}`);
+  window.location.reload();
+}
+
+/**
+ * Rollback to a specific version.
+ */
+async function handleRollback(sessionId: string): Promise<void> {
+  if (!apiClient) return;
+  try {
+    const response = await apiClient.rollbackTo(sessionId);
+    if (response.success) {
+      console.log(`[Appmorph] Rolled back to ${sessionId}. Removed: ${response.removed_sessions.join(', ')}`);
+      // Update cookie to the new current session
+      document.cookie = `${COOKIE_NAME}=${sessionId}; path=/; max-age=86400`;
+      // Refresh chain and page
+      await fetchChain();
+      window.location.reload();
+    } else {
+      console.error('[Appmorph] Rollback failed:', response.error);
+      alert(`Rollback failed: ${response.error}`);
+    }
+  } catch (error) {
+    console.error('[Appmorph] Rollback error:', error);
+    alert(`Rollback error: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 /**
@@ -40,6 +109,12 @@ function renderWidget(): void {
       consoleOutput={consoleOutput}
       isRunning={isRunning}
       stageUrl={currentStageUrl}
+      chain={chain}
+      onShowHistory={handleShowHistory}
+      onRollback={handleRollback}
+      onViewVersion={handleViewVersion}
+      showHistory={showHistory}
+      onHideHistory={handleHideHistory}
     />,
     containerEl
   );
@@ -73,6 +148,9 @@ function init(options: AppmorphInitOptions): void {
 
   // Render widget
   renderWidget();
+
+  // Fetch chain data in the background
+  fetchChain();
 }
 
 /**
@@ -111,6 +189,8 @@ function destroy(): void {
   isRunning = false;
   currentOptions = null;
   currentStageUrl = undefined;
+  chain = [];
+  showHistory = false;
 }
 
 /**
@@ -168,6 +248,8 @@ function handleSubmit(prompt: string): void {
             consoleOutput = [...consoleOutput, `Deploy URL: ${result.deployInfo.deployUrl}`];
           }
           renderWidget();
+          // Refresh chain after task completes
+          fetchChain();
         },
         onError: (error) => {
           console.error('Error:', error);
