@@ -280,12 +280,12 @@ export const styles = {
   chainBackButton: (_theme: Theme): CSSProperties => ({
     padding: '4px 8px',
     borderRadius: '4px',
-    border: '1px solid var(--appmorph-border)',
+    border: '1px solid #22c55e',
     cursor: 'pointer',
     fontSize: '12px',
     fontWeight: 500,
-    backgroundColor: 'transparent',
-    color: 'var(--appmorph-text-muted)',
+    backgroundColor: '#22c55e',
+    color: '#ffffff',
     transition: 'all 0.2s ease',
   }),
 

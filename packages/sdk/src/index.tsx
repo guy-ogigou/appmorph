@@ -56,13 +56,42 @@ function handleNewTask(): void {
 }
 
 /**
+ * Get the current session ID from cookie.
+ */
+function getSessionCookie(): string | null {
+  const match = document.cookie.match(new RegExp(`${COOKIE_NAME}=([^;]+)`));
+  return match ? match[1] : null;
+}
+
+/**
+ * Delete the session cookie.
+ */
+function deleteSessionCookie(): void {
+  document.cookie = `${COOKIE_NAME}=; path=/; max-age=0`;
+}
+
+/**
  * Fetch the user's chain from the backend.
+ * Also validates that the current session cookie exists in the chain.
  */
 async function fetchChain(): Promise<void> {
   if (!apiClient) return;
   try {
     const response = await apiClient.getChain();
     chain = response.chain;
+
+    // Validate session cookie - delete if it doesn't exist in the chain
+    const currentSessionId = getSessionCookie();
+    if (currentSessionId) {
+      const sessionExists = chain.some(entry => entry.session_id === currentSessionId);
+      if (!sessionExists) {
+        console.log(`[Appmorph] Session ${currentSessionId} not found in chain, deleting cookie`);
+        deleteSessionCookie();
+        window.location.reload();
+        return;
+      }
+    }
+
     renderWidget();
   } catch (error) {
     console.error('[Appmorph] Failed to fetch chain:', error);

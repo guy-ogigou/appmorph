@@ -11,13 +11,6 @@ function hasSessionCookie(): boolean {
   return document.cookie.split(';').some(c => c.trim().startsWith(`${COOKIE_NAME}=`));
 }
 
-/**
- * Delete the session cookie.
- */
-function deleteSessionCookie(): void {
-  document.cookie = `${COOKIE_NAME}=; path=/; max-age=0`;
-}
-
 export interface PanelProps {
   theme: 'light' | 'dark';
   onClose: () => void;
@@ -93,11 +86,10 @@ export function Panel({
   };
 
   const handleRevertToDefault = () => {
-    deleteSessionCookie();
-    setHasSession(false);
-    console.log('[Appmorph] Session cookie deleted, reverting to default');
-    // Refresh the page to load the default version
-    window.location.reload();
+    // Call rollback to reset to original state
+    if (onRollback) {
+      onRollback('__reset_to_original__');
+    }
   };
 
   return (
@@ -201,15 +193,6 @@ export function Panel({
                           style={styles.chainRollbackButton(theme)}
                         >
                           Rollback Here
-                        </button>
-                      )}
-                      {entry.is_current && entry.chain_position === 0 && onRollback && (
-                        <button
-                          type="button"
-                          onClick={() => onRollback('__reset_to_original__')}
-                          style={styles.chainRollbackButton(theme)}
-                        >
-                          Reset to Original
                         </button>
                       )}
                     </div>
