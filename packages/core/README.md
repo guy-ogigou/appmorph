@@ -14,6 +14,40 @@ yarn add @appmorph/core
 
 ## Quick Start
 
+### Using the CLI (Recommended)
+
+The easiest way to get started is using the interactive setup wizard:
+
+```bash
+# Run the setup wizard
+npx @appmorph/core
+
+# Or if installed globally
+appmorph
+```
+
+The CLI will guide you through creating both configuration files:
+
+```
+╔════════════════════════════════════════════════════════════╗
+║                    APPMORPH SETUP WIZARD                   ║
+╚════════════════════════════════════════════════════════════╝
+
+  This wizard will help you configure Appmorph by creating:
+  • appmorph.json - Project configuration
+  • .env - Environment variables
+```
+
+### CLI Options
+
+```bash
+appmorph           # Run interactive setup wizard
+appmorph --help    # Show all configuration parameters
+appmorph --version # Show version
+```
+
+### Running the Server
+
 ```bash
 # Development mode with hot reload
 pnpm dev
@@ -27,14 +61,22 @@ The API server starts on port 3002 and the deploy server on port 3003 by default
 
 ## Configuration
 
-### Environment Variables
+The CLI creates two configuration files. You can also create them manually:
+
+### Environment Variables (.env)
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `3002` | API server port |
-| `HOST` | `0.0.0.0` | Server host |
-| `NODE_ENV` | `development` | Environment mode |
-| `DEPLOY_PORT` | `3003` | Deploy server port |
+| `HOST` | `0.0.0.0` | Server host binding |
+| `APPMORPH_PROJECT_PATH` | - | Path to project folder (auto-detected from appmorph.json location) |
+| `APPMORPH_AGENT_TYPE` | `claude-cli` | AI agent type (only `claude-cli` supported) |
+| `APPMORPH_CLAUDE_COMMAND` | `claude` | Claude CLI command name (must be in PATH) |
+| `OPENAI_API_KEY` | - | OpenAI API key (enables message sanitizer) |
+| `OPENAI_MODEL` | `gpt-4o-mini` | OpenAI model for message sanitization |
+| `SANITIZER_INTERVAL_MS` | `2000` | Interval between sanitizer flushes (ms) |
+
+The message sanitizer is an optional feature that uses OpenAI to provide cleaner, more concise status messages during agent execution. It's only enabled when `OPENAI_API_KEY` is set.
 
 ### Project Configuration (appmorph.json)
 
@@ -63,8 +105,10 @@ The `appmorph.json` file in your project root is **required**:
 ```
 src/
 ├── index.ts              # Server entry point (starts API + deploy servers)
+├── cli/
+│   └── init.ts           # CLI setup wizard (creates appmorph.json and .env)
 ├── config/
-│   └── index.ts          # appmorph.json configuration loader
+│   └── index.ts          # Configuration loader and validator
 ├── server/
 │   ├── app.ts            # Fastify app setup
 │   └── routes/
@@ -83,6 +127,9 @@ src/
 │   └── executor.ts       # TaskExecutor (orchestrates staging → agent → build)
 ├── persistence/
 │   └── index.ts          # TaskPersistence (JSON file storage for tasks)
+├── services/
+│   ├── openai-client.ts  # OpenAI API client
+│   └── message-sanitizer.ts # Message batching and summarization
 ├── plugins/
 │   ├── types.ts          # Plugin interface
 │   ├── loader.ts         # Plugin loading
@@ -380,11 +427,86 @@ Or use docker-compose from the project root:
 docker-compose up core
 ```
 
+## CLI Reference
+
+The `appmorph` CLI helps you set up configuration files interactively.
+
+### Installation
+
+```bash
+# Global installation
+npm install -g @appmorph/core
+
+# Or use npx
+npx @appmorph/core
+```
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `appmorph` | Run the interactive setup wizard |
+| `appmorph --help` | Show help with all configuration parameters |
+| `appmorph --version` | Show version number |
+
+### Configuration Parameters
+
+The CLI configures the following parameters:
+
+**appmorph.json (Project Configuration)**
+
+| Parameter | Description |
+|-----------|-------------|
+| `source_type` | Source type (always `"file_system"`) |
+| `source_location` | Path to your source code |
+| `build_command` | Build command with `<dist>` placeholder |
+| `deploy_type` | Deploy type (always `"file_system"`) |
+| `deploy_root` | Output directory for builds |
+
+**.env (Environment Variables)**
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `PORT` | `3002` | API server port |
+| `HOST` | `0.0.0.0` | Server host |
+| `APPMORPH_PROJECT_PATH` | - | Project path (auto-detected) |
+| `APPMORPH_AGENT_TYPE` | `claude-cli` | Agent type |
+| `APPMORPH_CLAUDE_COMMAND` | `claude` | Claude CLI command |
+| `OPENAI_API_KEY` | - | OpenAI key (enables sanitizer) |
+| `OPENAI_MODEL` | `gpt-4o-mini` | OpenAI model |
+| `SANITIZER_INTERVAL_MS` | `2000` | Sanitizer interval (ms) |
+
+### Example Output
+
+```
+╔════════════════════════════════════════════════════════════╗
+║                    APPMORPH SETUP WIZARD                   ║
+╚════════════════════════════════════════════════════════════╝
+
+  Output directory for config files [/your/project]:
+
+┌─ Project Configuration (appmorph.json) ──────────────────┐
+
+  Source code location (relative path) [./src]: ./my-app
+  Build command (use <dist> for output dir) [npm run build -- --outDir <dist>]:
+  Deploy output directory [./deploy]:
+
+┌─ Environment Configuration (.env) ───────────────────────┐
+
+  ── Server Settings ──
+  API server port [3002]:
+  Server host [0.0.0.0]:
+  ...
+```
+
 ## Development
 
 ```bash
 # Run in development mode
 pnpm dev
+
+# Run CLI in development mode
+pnpm init
 
 # Type check
 pnpm typecheck

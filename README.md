@@ -74,9 +74,33 @@ pnpm install
 pnpm build
 ```
 
-### Configuration
+### Configuration with CLI (Recommended)
 
-Create an `appmorph.json` file in your project root (required):
+The easiest way to configure Appmorph is using the interactive CLI:
+
+```bash
+# If installed globally
+npx @appmorph/core
+
+# Or run the setup wizard
+appmorph
+```
+
+The CLI wizard will guide you through configuring:
+- **appmorph.json** - Project configuration (source location, build command, deploy settings)
+- **.env** - Environment variables (server settings, agent configuration, optional sanitizer)
+
+```bash
+# Show all available options
+appmorph --help
+
+# Show version
+appmorph --version
+```
+
+### Manual Configuration
+
+Alternatively, create an `appmorph.json` file in your project root (required):
 
 ```json
 {
@@ -187,6 +211,19 @@ Create an `appmorph.json` in your project root (required):
 The `<dist>` placeholder in `build_command` is replaced at runtime:
 - Default app build: replaced with `deploy_root`
 - Session build: replaced with `deploy_root/<session_id>`
+
+### Environment Variables (.env)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `3002` | API server port |
+| `HOST` | `0.0.0.0` | Server host binding |
+| `APPMORPH_PROJECT_PATH` | - | Path to project folder (auto-detected from appmorph.json) |
+| `APPMORPH_AGENT_TYPE` | `claude-cli` | AI agent type |
+| `APPMORPH_CLAUDE_COMMAND` | `claude` | Claude CLI command name |
+| `OPENAI_API_KEY` | - | OpenAI API key (enables message sanitizer) |
+| `OPENAI_MODEL` | `gpt-4o-mini` | OpenAI model for sanitization |
+| `SANITIZER_INTERVAL_MS` | `2000` | Sanitizer flush interval in milliseconds |
 
 ## SDK Integration
 
